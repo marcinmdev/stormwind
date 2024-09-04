@@ -4,6 +4,11 @@ use std::process::exit;
 
 const URL: &str = "https://jsonplaceholder.typicode.com/todos/1";
 
+//TODO https://github.com/serde-rs/json?tab=readme-ov-file#parsing-json-as-strongly-typed-data-structures
+//NOTE https://openweathermap.org/forecast16
+//TODO parse api key
+
+
 fn main() {
     let client = Client::new();
     match client.get(self::URL).send() {
