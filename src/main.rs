@@ -1,13 +1,19 @@
 use reqwest::blocking::Client;
+use serde_json::Value;
 use std::process::exit;
 
-fn main() {
+const URL: &str = "https://jsonplaceholder.typicode.com/todos/1";
 
+fn main() {
     let client = Client::new();
-    match client.get("https://www.rust-lang.org").send() {
-        Ok(response) => println!("body = {response:?}"),
-        Err(_) => {
-            exit(0)
+    match client.get(self::URL).send() {
+        Ok(response) => {
+            let json: Value = response.json().unwrap();
+            println!(
+                "userId: {}, id: {}, title: {}, completed: {}",
+                json["userId"], json["id"], json["title"], json["completed"]
+            )
         }
+        Err(_) => exit(0),
     };
 }
