@@ -1,10 +1,9 @@
+use home::home_dir;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
+use std::fs;
 use std::process::exit;
-
-const URL: &str = "https://jsonplaceholder.typicode.com/todos/1";
 
 #[derive(Serialize, Deserialize)]
 struct Coord {
@@ -14,7 +13,7 @@ struct Coord {
 
 #[derive(Serialize, Deserialize)]
 struct Weather {
-    id: u8,
+    id: u32,
     main: String,
     description: String,
     icon: String,
@@ -26,35 +25,37 @@ struct MainWeather {
     feels_like: f32,
     temp_min: f32,
     temp_max: f32,
-    pressure: u8,
-    humidity: u8,
-    sea_level: u8,
-    grnd_level: u8,
+    pressure: f32,
+    humidity: f32,
+    sea_level: f32,
+    grnd_level: f32,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Wind {
     speed: f32,
-    deg: u8,
-    gust: f32,
+    deg: f32,
+    gust: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Rain {
     #[serde(rename = "1h")]
-    one_h: f32,
+    one_h: Option<f32>,
+    #[serde(rename = "3h")]
+    tree_h: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Clouds {
-    all: u8,
+    all: u32,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Sys {
     #[serde(rename = "type")]
-    _type: u8,
-    id: u8,
+    _type: u32,
+    id: u32,
     country: String,
     sunrise: u32,
     sunset: u32,
@@ -68,7 +69,7 @@ pub struct WeatherReportCurrent {
     main: MainWeather,
     visibility: u32,
     wind: Wind,
-    rain: Rain,
+    rain: Option<Rain>,
     clouds: Clouds,
     dt: u64,
     sys: Sys,
@@ -77,20 +78,32 @@ pub struct WeatherReportCurrent {
     cod: u16,
 }
 
-//TODO https://github.com/serde-rs/json?tab=readme-ov-file#parsing-json-as-strongly-typed-data-structures
 //NOTE https://openweathermap.org/current
 //NOTE https://github.com/BroderickCarlin/openweather/blob/master/src/weather_types.rs
-//TODO parse api key
+//TODO format output
+//TODO cache to file + https://crates.io/crates/dirs
 
 fn main() {
     let client = Client::new();
-    match client.get(self::URL).send() {
+
+    let lat: f32 = 50.11;
+    let lon: f32 = 19.92;
+
+    let api_key_dir = home_dir().unwrap();
+    let api_key_name: &str = "/.owm-key";
+    let api_key_path = format!("{}{}", api_key_dir.display(), api_key_name);
+    println!("{}", api_key_path);
+    let api_key = fs::read_to_string(api_key_path).expect("Should have been able to read the file");
+
+    let url = format!(
+        "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}",
+        lat, lon, api_key
+    );
+
+    match client.get(url).send() {
         Ok(response) => {
-            let json: Value = response.json().unwrap();
-            println!(
-                "userId: {}, id: {}, title: {}, completed: {}",
-                json["userId"], json["id"], json["title"], json["completed"]
-            )
+            let report: WeatherReportCurrent = response.json().unwrap();
+            println!("body: {}", report.base)
         }
         Err(_) => exit(0),
     };
