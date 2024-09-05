@@ -81,6 +81,7 @@ pub struct WeatherReportCurrent {
 //NOTE https://openweathermap.org/current
 //NOTE https://github.com/BroderickCarlin/openweather/blob/master/src/weather_types.rs
 //TODO format output
+//TODO test
 //TODO cache to file + https://crates.io/crates/dirs
 
 fn main() {
@@ -90,10 +91,9 @@ fn main() {
     let lon: f32 = 19.92;
 
     let api_key_dir = home_dir().unwrap();
-    let api_key_name: &str = "/.owm-key";
+    let api_key_name: &str = "/.owm-keyz";
     let api_key_path = format!("{}{}", api_key_dir.display(), api_key_name);
-    println!("{}", api_key_path);
-    let api_key = fs::read_to_string(api_key_path).expect("Should have been able to read the file");
+    let api_key = fs::read_to_string(&api_key_path).expect(&format!("No api key present, path: {}", &api_key_path).to_string());
 
     let url = format!(
         "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}",
