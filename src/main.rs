@@ -9,8 +9,6 @@ use std::path::Path;
 use std::process::exit;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 #[derive(Serialize, Deserialize, Debug)]
 struct Coord {
     lat: f32,
@@ -88,7 +86,6 @@ pub struct WeatherReportCurrent {
 //NOTE https://github.com/BroderickCarlin/openweather/blob/master/src/weather_types.rs
 //TODO test
 //TODO cache to file + https://crates.io/crates/dirs + version cache file + embeed timestamp +
-//separate method
 
 fn main() {
     let client = Client::new();
@@ -117,8 +114,6 @@ fn main() {
     let cache_path = format!("{}{}", cache_dir.display(), cache_file_name);
 
     if Path::new(&cache_path).exists() {
-        let cache_contents = fs::read_to_string(&cache_path).unwrap();
-
         let cache_file_metadata = fs::metadata(&cache_path).unwrap();
 
         let cache_mtime =
@@ -134,7 +129,7 @@ fn main() {
         let cache_age = current_time - (cache_mtime as u64);
 
         if cache_age < cache_lifetime {
-            let report: WeatherReportCurrent = serde_json::from_str(&cache_contents).unwrap();
+            let report = read_cache_file(&cache_path);
 
             println!("Cached response: {}", format_output(&report));
             exit(0)
@@ -144,13 +139,10 @@ fn main() {
     match client.get(url).send() {
         Ok(response) => {
             let report: WeatherReportCurrent = response.json().unwrap();
-            println!("{}", format_output(&report));
 
-            fs::write(
-                cache_path,
-                report.serialize(Serializer).unwrap().to_string(),
-            )
-            .unwrap();
+            write_cache_file(&report, &cache_path);
+
+            println!("{}", format_output(&report));
         }
         Err(_) => exit(0),
     };
@@ -160,4 +152,21 @@ fn format_output(report: &WeatherReportCurrent) -> String {
     let temp = report.main.feels_like;
     let wind_speed = report.wind.speed;
     format!("Temperature: {}C, Wind Speed: {}m/s", temp, wind_speed)
+}
+
+fn write_cache_file(report: &WeatherReportCurrent, cache_path: &String) {
+    fs::write(
+        cache_path,
+        report.serialize(Serializer).unwrap().to_string(),
+    )
+    .unwrap();
+}
+
+fn read_cache_file(cache_path: &String) -> WeatherReportCurrent {
+    let version = env!("CARGO_PKG_VERSION");
+
+    let cache_contents = fs::read_to_string(cache_path).unwrap();
+
+    let report: WeatherReportCurrent = serde_json::from_str(&cache_contents).unwrap();
+    report
 }
