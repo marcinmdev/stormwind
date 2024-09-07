@@ -98,10 +98,7 @@ fn main() {
     let api_key_name = "/.owm-key";
     let api_key_path = format!("{}{}", api_key_dir.display(), api_key_name);
     let api_key = fs::read_to_string(&api_key_path).unwrap_or_else(|_| {
-        eprintln!(
-            "{}",
-            format!("Error: no api key present in path: {}", &api_key_path).to_owned()
-        );
+        eprintln!("Error: no api key present in path: {}", &api_key_path);
         exit(0)
     });
 
