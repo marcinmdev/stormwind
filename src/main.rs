@@ -3,9 +3,11 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Serializer;
 
+use filetime::FileTime;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -115,14 +117,28 @@ fn main() {
     let cache_path = format!("{}{}", cache_dir.display(), cache_file_name);
 
     if Path::new(&cache_path).exists() {
-        println!("Cache exists");
-
         let cache_contents = fs::read_to_string(&cache_path).unwrap();
 
-        let report: WeatherReportCurrent = serde_json::from_str(&cache_contents).unwrap();
+        let cache_file_metadata = fs::metadata(&cache_path).unwrap();
 
-        println!("{}", format_output(&report));
-        exit(0)
+        let cache_mtime =
+            FileTime::from_last_modification_time(&cache_file_metadata).unix_seconds();
+
+        let cache_lifetime = 600;
+
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs();
+
+        let cache_age = current_time - (cache_mtime as u64);
+
+        if cache_age < cache_lifetime {
+            let report: WeatherReportCurrent = serde_json::from_str(&cache_contents).unwrap();
+
+            println!("Cached response: {}", format_output(&report));
+            exit(0)
+        }
     }
 
     match client.get(url).send() {
