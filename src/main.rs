@@ -95,7 +95,7 @@ fn main() {
     let lon: f32 = 19.92;
 
     let api_key_dir = home_dir().unwrap();
-    let api_key_name: &str = "/.owm-key";
+    let api_key_name = "/.owm-key";
     let api_key_path = format!("{}{}", api_key_dir.display(), api_key_name);
     let api_key = fs::read_to_string(&api_key_path).unwrap_or_else(|_| {
         eprintln!(
@@ -105,8 +105,8 @@ fn main() {
         exit(0)
     });
 
-    let lang = String::from("pl");
-    let units = String::from("metric");
+    let lang = "pl";
+    let units = "metric";
 
     let url = format!(
         "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&lang={}&units={}&appid={}",
@@ -114,7 +114,7 @@ fn main() {
     );
 
     let cache_dir = cache_dir().unwrap();
-    let cache_file_name = String::from("/stormwind.cache");
+    let cache_file_name = "/stormwind.cache";
     let cache_path = format!("{}{}", cache_dir.display(), cache_file_name);
 
     if Path::new(&cache_path).exists() {
