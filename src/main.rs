@@ -1,6 +1,6 @@
 use dirs::{cache_dir, home_dir};
 use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::value::Serializer;
 
 use filetime::FileTime;
@@ -12,81 +12,11 @@ use std::process::exit;
 use std::result::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Coord {
-    lat: f32,
-    lon: f32,
-}
+use crate::report::WeatherReportCurrent;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Weather {
-    id: u32,
-    main: String,
-    description: String,
-    icon: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct MainWeather {
-    temp: f32,
-    feels_like: f32,
-    temp_min: f32,
-    temp_max: f32,
-    pressure: f32,
-    humidity: f32,
-    sea_level: f32,
-    grnd_level: f32,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Wind {
-    speed: f32,
-    deg: f32,
-    gust: Option<f32>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Rain {
-    #[serde(rename = "1h")]
-    one_h: Option<f32>,
-    #[serde(rename = "3h")]
-    tree_h: Option<f32>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Clouds {
-    all: u32,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Sys {
-    #[serde(rename = "type")]
-    _type: u32,
-    id: u32,
-    country: String,
-    sunrise: u32,
-    sunset: u32,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct WeatherReportCurrent {
-    coord: Coord,
-    weather: Vec<Weather>,
-    base: String,
-    main: MainWeather,
-    visibility: u32,
-    wind: Wind,
-    rain: Option<Rain>,
-    clouds: Clouds,
-    dt: u64,
-    sys: Sys,
-    id: u64,
-    name: String,
-    cod: u16,
-}
+mod report;
 
 //NOTE https://openweathermap.org/current
-//NOTE https://github.com/BroderickCarlin/openweather/blob/master/src/weather_types.rs
 //TODO test
 
 fn main() {
@@ -178,4 +108,15 @@ fn read_cache_file(cache_path: &String) -> Result<WeatherReportCurrent, &'static
     let report: WeatherReportCurrent =
         serde_json::from_str(cache_contents.lines().nth(1).unwrap()).unwrap();
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn internal() {
+        let result = 2+2;
+        assert_eq!(result, 4);
+    }
 }
