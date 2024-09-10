@@ -52,7 +52,7 @@ fn main() {
 
     if let Ok(config_file) = fs::read_to_string(&config_path) {
         //TODO parse config values
-        //https://github.com/mehcode/config-rs
+        //https://github.com/mehcode/config-rs or serde with toml support
     }
 
     let api_key_dir = home_dir().unwrap();
