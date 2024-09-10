@@ -17,7 +17,10 @@ use crate::report::WeatherReportCurrent;
 mod report;
 
 //NOTE https://openweathermap.org/current
-//TODO test
+//TODO integration test
+//TODO config params
+//TODO config file
+//TODO readme
 
 fn main() {
     let client = Client::new();
