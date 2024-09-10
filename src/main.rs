@@ -1,4 +1,5 @@
-use dirs::{cache_dir, home_dir};
+use clap::Parser;
+use dirs::{cache_dir, config_dir, home_dir};
 use reqwest::blocking::Client;
 use serde::Serialize;
 use serde_json::value::Serializer;
@@ -19,14 +20,40 @@ mod report;
 //NOTE https://openweathermap.org/current
 //TODO integration test
 //TODO config params
-//TODO config file
 //TODO readme
+//
+//
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    lat: Option<f32>,
+
+    #[arg(short, long)]
+    lon: Option<f32>,
+
+    #[arg(short, long)]
+    lang: Option<String>,
+
+    #[arg(short, long)]
+    units: Option<String>,
+}
 
 fn main() {
     let client = Client::new();
 
     let lat: f32 = 50.11;
     let lon: f32 = 19.92;
+
+    let config_dir = config_dir().unwrap();
+
+    let config_path = format!("{}{}", config_dir.display(), "stormwind.cfg");
+
+    if let Ok(config_file) = fs::read_to_string(&config_path) {
+        //TODO parse config values
+        //https://github.com/mehcode/config-rs
+    }
 
     let api_key_dir = home_dir().unwrap();
     let api_key_name = "/.owm-key";
@@ -115,11 +142,9 @@ fn read_cache_file(cache_path: &String) -> Result<WeatherReportCurrent, &'static
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn internal() {
-        let result = 2+2;
+        let result = 2 + 2;
         assert_eq!(result, 4);
     }
 }
