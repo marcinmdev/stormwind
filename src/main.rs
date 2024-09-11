@@ -20,15 +20,14 @@ use crate::report::WeatherReportCurrent;
 mod report;
 
 //NOTE https://openweathermap.org/current
+//TODO more elegant arg parsing?
 //TODO integration test
-//TODO config params
 //TODO readme
-//
-//
 
-#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, Display)]
+#[derive(clap::ValueEnum, Clone, Debug, Deserialize, Display)]
+#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 enum Units {
-    #[default]
     Standard,
     Metric,
     Imperial,
@@ -51,8 +50,8 @@ struct Args {
     #[arg(long)]
     lang: Option<String>,
 
-    #[arg(long, default_value_t, value_enum)]
-    units: Units,
+    #[arg(long, value_enum)]
+    units: Option<Units>,
 }
 
 fn main() {
@@ -61,12 +60,12 @@ fn main() {
     let config_dir = config_dir().unwrap();
 
     let config_file_name = "stormwind.toml";
-    let config_path = format!("{}/{}", config_dir.display(), &config_file_name);
+    let config_path = format!("{}/stormwind/{}", config_dir.display(), &config_file_name);
 
     let mut lat: f32 = 0.0;
     let mut lon: f32 = 0.0;
-    let mut lang;
-    let mut units: String;
+    let mut lang = String::from("en");
+    let mut units = Units::Standard;
 
     if let Ok(config_file_content) = fs::read_to_string(&config_path) {
         let config_data: Config = match toml::from_str(&config_file_content) {
@@ -77,18 +76,42 @@ fn main() {
             }
         };
 
-        lat = config_data.config.lat.unwrap();
-        lon = config_data.config.lon.unwrap();
-        lang = config_data.config.lang.unwrap();
-        units = config_data.config.units.to_string();
+        if let Some(lat_from_config) = config_data.config.lat {
+            lat = lat_from_config
+        }
+
+        if let Some(lon_from_config) = config_data.config.lon {
+            lon = lon_from_config
+        }
+
+        if let Some(lang_from_config) = config_data.config.lang {
+            lang = lang_from_config
+        }
+
+        if let Some(units_from_config) = config_data.config.units {
+            units = units_from_config
+        }
     }
 
-    //TODO overwrite with args from CLI
     let args = Args::parse();
 
-    dbg!(args);
+    if let Some(lat_from_args) = args.lat {
+        lat = lat_from_args
+    }
 
-    // println!("config values: {} {} {} {}", lat, lon, lang, units);
+    if let Some(lon_from_args) = args.lon {
+        lon = lon_from_args
+    }
+
+    if let Some(lang_from_args) = args.lang {
+        lang = lang_from_args
+    }
+
+    if let Some(units_from_args) = args.units {
+        units = units_from_args
+    }
+
+    println!("config values: {} {} {} {}", lat, lon, lang, units);
 
     let api_key_dir = home_dir().unwrap();
     let api_key_name = ".owm-key";
@@ -132,7 +155,7 @@ fn main() {
 
     match client.get(url).send() {
         Ok(response) => {
-            let report: WeatherReportCurrent = response.json().unwrap();
+            let report: WeatherReportCurrent = response.json().expect("Invalid response from API");
 
             write_cache_file(&report, &cache_path).unwrap();
 

@@ -49,9 +49,9 @@ pub struct Clouds {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sys {
     #[serde(rename = "type")]
-    pub _type: u32,
-    pub id: u32,
-    pub country: String,
+    pub _type: Option<u32>,
+    pub id: Option<u32>,
+    pub country: Option<String>,
     pub sunrise: u32,
     pub sunset: u32,
 }
