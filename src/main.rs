@@ -1,8 +1,10 @@
 use clap::Parser;
 use dirs::{cache_dir, config_dir, home_dir};
 use reqwest::blocking::Client;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::value::Serializer;
+
+use strum::Display;
 
 use filetime::FileTime;
 use std::fs;
@@ -24,47 +26,77 @@ mod report;
 //
 //
 
-#[derive(Parser, Debug)]
+#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, Display)]
+enum Units {
+    #[default]
+    Standard,
+    Metric,
+    Imperial,
+}
+
+#[derive(Deserialize)]
+struct Config {
+    config: Args,
+}
+
+#[derive(Parser, Deserialize, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(long, help = "Latitude of location")]
     lat: Option<f32>,
 
-    #[arg(short, long)]
+    #[arg(long, help = "Longitude of location")]
     lon: Option<f32>,
 
-    #[arg(short, long)]
+    #[arg(long)]
     lang: Option<String>,
 
-    #[arg(short, long)]
-    units: Option<String>,
+    #[arg(long, default_value_t, value_enum)]
+    units: Units,
 }
 
 fn main() {
     let client = Client::new();
 
-    let lat: f32 = 50.11;
-    let lon: f32 = 19.92;
-
     let config_dir = config_dir().unwrap();
 
-    let config_path = format!("{}{}", config_dir.display(), "stormwind.cfg");
+    let config_file_name = "stormwind.toml";
+    let config_path = format!("{}/{}", config_dir.display(), &config_file_name);
 
-    if let Ok(config_file) = fs::read_to_string(&config_path) {
-        //TODO parse config values
-        //https://github.com/mehcode/config-rs or serde with toml support
+    let mut lat: f32 = 0.0;
+    let mut lon: f32 = 0.0;
+    let mut lang;
+    let mut units: String;
+
+    if let Ok(config_file_content) = fs::read_to_string(&config_path) {
+        let config_data: Config = match toml::from_str(&config_file_content) {
+            Ok(d) => d,
+            Err(_) => {
+                eprintln!("Unable to load config from `{}`", &config_path);
+                exit(1);
+            }
+        };
+
+        lat = config_data.config.lat.unwrap();
+        lon = config_data.config.lon.unwrap();
+        lang = config_data.config.lang.unwrap();
+        units = config_data.config.units.to_string();
     }
 
+    //TODO overwrite with args from CLI
+    let args = Args::parse();
+
+    dbg!(args);
+
+    // println!("config values: {} {} {} {}", lat, lon, lang, units);
+
     let api_key_dir = home_dir().unwrap();
-    let api_key_name = "/.owm-key";
-    let api_key_path = format!("{}{}", api_key_dir.display(), api_key_name);
+    let api_key_name = ".owm-key";
+    let api_key_path = format!("{}/{}", api_key_dir.display(), api_key_name);
     let api_key = fs::read_to_string(&api_key_path).unwrap_or_else(|_| {
         eprintln!("Error: no api key present in path: {}", &api_key_path);
         exit(0)
     });
-
-    let lang = "pl";
-    let units = "metric";
 
     let url = format!(
         "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&lang={}&units={}&appid={}",
