@@ -20,7 +20,8 @@ use crate::report::WeatherReportCurrent;
 mod report;
 
 //NOTE https://openweathermap.org/current
-//TODO more elegant arg parsing?
+//TODO more elegant arg parsing
+//TODO persist config in cache file
 //TODO integration test
 //TODO readme
 
