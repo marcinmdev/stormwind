@@ -23,6 +23,7 @@ mod report;
 //TODO more elegant arg parsing
 //TODO persist config in cache file
 //TODO integration test
+//TODO config cache lifetime
 //TODO readme
 
 #[derive(clap::ValueEnum, Clone, Debug, Deserialize, Display)]
@@ -53,6 +54,9 @@ struct Args {
 
     #[arg(long, value_enum)]
     units: Option<Units>,
+    
+    #[arg(long, help = "Cache lifetime in seconds")]
+    cache: Option<u8>,
 }
 
 fn main() {
