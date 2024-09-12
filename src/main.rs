@@ -65,11 +65,13 @@ fn main() {
     let config_file_name = "stormwind.toml";
     let config_path = format!("{}/stormwind/{}", config_dir.display(), &config_file_name);
 
-    let mut lat: f32 = 0.0;
-    let mut lon: f32 = 0.0;
-    let mut lang = String::from("en");
-    let mut units = Units::Standard;
-    let mut cache_lifetime = 600;
+    let mut config = Args {
+        lat: Some(52.23),
+        lon: Some(21.01),
+        lang: Some("en".to_string()),
+        units: Some(Units::Standard),
+        cache: Some(600),
+    };
 
     if let Ok(config_file_content) = fs::read_to_string(&config_path) {
         let config_data: Config = match toml::from_str(&config_file_content) {
@@ -81,50 +83,54 @@ fn main() {
         };
 
         if let Some(lat_from_config) = config_data.config.lat {
-            lat = lat_from_config
+            config.lat = Some(lat_from_config)
         }
 
         if let Some(lon_from_config) = config_data.config.lon {
-            lon = lon_from_config
+            config.lon = Some(lon_from_config)
         }
 
         if let Some(lang_from_config) = config_data.config.lang {
-            lang = lang_from_config
+            config.lang = Some(lang_from_config)
         }
 
         if let Some(units_from_config) = config_data.config.units {
-            units = units_from_config
+            config.units = Some(units_from_config)
         }
         if let Some(cache_from_config) = config_data.config.cache {
-            cache_lifetime = cache_from_config
+            config.cache = Some(cache_from_config)
         }
     }
 
     let args = Args::parse();
 
     if let Some(lat_from_args) = args.lat {
-        lat = lat_from_args
+        config.lat = Some(lat_from_args)
     }
 
     if let Some(lon_from_args) = args.lon {
-        lon = lon_from_args
+        config.lon = Some(lon_from_args)
     }
 
     if let Some(lang_from_args) = args.lang {
-        lang = lang_from_args
+        config.lang = Some(lang_from_args)
     }
 
     if let Some(units_from_args) = args.units {
-        units = units_from_args
+        config.units = Some(units_from_args)
     }
 
     if let Some(cache_from_args) = args.cache {
-        cache_lifetime = cache_from_args
+        config.cache = Some(cache_from_args)
     }
 
     println!(
-        "config values: {} {} {} {} {}",
-        lat, lon, lang, units, cache_lifetime
+        "config values: {:?} {:?} {:?} {:?} {:?}",
+        config.lat,
+        config.lon,
+        config.lang,
+        config.units,
+        config.cache
     );
 
     let api_key_dir = home_dir().unwrap();
@@ -136,8 +142,8 @@ fn main() {
     });
 
     let url = format!(
-        "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&lang={}&units={}&appid={}",
-        lat, lon, lang, units, api_key
+        "https://api.openweathermap.org/data/2.5/weather?lat={:?}&lon={:?}&lang={:?}&units={:?}&appid={:?}",
+        config.lat, config.lon, config.lang, config.units, api_key
     );
 
     let cache_dir = cache_dir().unwrap();
@@ -157,7 +163,7 @@ fn main() {
 
         let cache_age = current_time - (cache_mtime as u64);
 
-        if cache_age < cache_lifetime.into() {
+        if cache_age < config.cache.unwrap().into() {
             if let Ok(report) = read_cache_file(&cache_path) {
                 println!("Cached response: {}", format_output(&report));
                 exit(0);
