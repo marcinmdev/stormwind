@@ -194,7 +194,7 @@ fn write_cache_file(report: &WeatherReportCurrent, cache_path: &String) -> std::
 
 fn read_cache_file(cache_path: &String) -> Result<WeatherReportCurrent, &'static str> {
     let cache_contents = fs::read_to_string(cache_path).unwrap();
-
+    //TODO inject config metadata
     if cache_contents.lines().count() < 2
         || env!("CARGO_PKG_VERSION") != cache_contents.lines().next().unwrap()
     {
