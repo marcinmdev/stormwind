@@ -21,9 +21,7 @@ mod report;
 
 //NOTE https://openweathermap.org/current
 //TODO more elegant arg parsing
-//TODO persist config in cache file
 //TODO integration test
-//TODO config cache lifetime
 //TODO readme
 
 #[derive(clap::ValueEnum, Clone, Debug, Deserialize, Display)]
@@ -54,9 +52,9 @@ struct Args {
 
     #[arg(long, value_enum)]
     units: Option<Units>,
-    
+
     #[arg(long, help = "Cache lifetime in seconds")]
-    cache: Option<u8>,
+    cache: Option<u16>,
 }
 
 fn main() {
@@ -71,6 +69,7 @@ fn main() {
     let mut lon: f32 = 0.0;
     let mut lang = String::from("en");
     let mut units = Units::Standard;
+    let mut cache_lifetime = 600;
 
     if let Ok(config_file_content) = fs::read_to_string(&config_path) {
         let config_data: Config = match toml::from_str(&config_file_content) {
@@ -96,6 +95,9 @@ fn main() {
         if let Some(units_from_config) = config_data.config.units {
             units = units_from_config
         }
+        if let Some(cache_from_config) = config_data.config.cache {
+            cache_lifetime = cache_from_config
+        }
     }
 
     let args = Args::parse();
@@ -116,7 +118,14 @@ fn main() {
         units = units_from_args
     }
 
-    println!("config values: {} {} {} {}", lat, lon, lang, units);
+    if let Some(cache_from_args) = args.cache {
+        cache_lifetime = cache_from_args
+    }
+
+    println!(
+        "config values: {} {} {} {} {}",
+        lat, lon, lang, units, cache_lifetime
+    );
 
     let api_key_dir = home_dir().unwrap();
     let api_key_name = ".owm-key";
@@ -141,8 +150,6 @@ fn main() {
         let cache_mtime =
             FileTime::from_last_modification_time(&cache_file_metadata).unix_seconds();
 
-        let cache_lifetime = 600;
-
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards")
@@ -150,7 +157,7 @@ fn main() {
 
         let cache_age = current_time - (cache_mtime as u64);
 
-        if cache_age < cache_lifetime {
+        if cache_age < cache_lifetime.into() {
             if let Ok(report) = read_cache_file(&cache_path) {
                 println!("Cached response: {}", format_output(&report));
                 exit(0);
