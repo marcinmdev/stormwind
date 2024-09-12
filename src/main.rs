@@ -188,13 +188,16 @@ fn write_cache_file(report: &WeatherReportCurrent, cache_path: &String) -> std::
 
     let mut f = File::options().append(true).open(cache_path)?;
     writeln!(&mut f, env!("CARGO_PKG_VERSION"))?;
+    //TODO config params as struct
+    // writeln!(&mut f, "{}",lat);
+    // writeln!(&mut f, env!("CARGO_PKG_VERSION"))?;
     writeln!(&mut f, "{}", report.serialize(Serializer).unwrap())?;
     Ok(())
 }
 
 fn read_cache_file(cache_path: &String) -> Result<WeatherReportCurrent, &'static str> {
     let cache_contents = fs::read_to_string(cache_path).unwrap();
-    //TODO inject config metadata
+
     if cache_contents.lines().count() < 2
         || env!("CARGO_PKG_VERSION") != cache_contents.lines().next().unwrap()
     {
