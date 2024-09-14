@@ -20,7 +20,6 @@ use crate::report::WeatherReportCurrent;
 mod report;
 
 //NOTE https://openweathermap.org/current
-//TODO more elegant arg parsing
 //TODO integration test
 //TODO readme
 
@@ -194,17 +193,23 @@ fn main() {
 fn format_output(report: &WeatherReportCurrent) -> String {
     let temp = report.main.feels_like;
     let wind_speed = report.wind.speed;
-
+    let clouds = report.clouds.all;
+    //TODO cleanup - format append?
+    //TODO snow
+    //TODO icons
     if let Some(rain) = &report.rain {
         if let Some(one_h) = rain.one_h {
             return format!(
-                "Temperature: {}C, Wind Speed: {}m/s, Rain: {}mm",
-                &temp, &wind_speed, one_h
+                "Temperature: {}C, Wind Speed: {}m/s, Clouds: {}%, Rain: {}mm",
+                &temp, &wind_speed, &clouds, one_h
             );
         }
     }
 
-    format!("Temperature: {}C, Wind Speed: {}m/s", &temp, &wind_speed)
+    format!(
+        "Temperature: {}C, Wind Speed: {} m/s, Clouds: {}%",
+        &temp, &wind_speed, &clouds
+    )
 }
 
 fn write_cache_file(
