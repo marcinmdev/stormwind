@@ -194,7 +194,17 @@ fn main() {
 fn format_output(report: &WeatherReportCurrent) -> String {
     let temp = report.main.feels_like;
     let wind_speed = report.wind.speed;
-    format!("Temperature: {}C, Wind Speed: {}m/s", temp, wind_speed)
+
+    if let Some(rain) = &report.rain {
+        if let Some(one_h) = rain.one_h {
+            return format!(
+                "Temperature: {}C, Wind Speed: {}m/s, Rain: {}mm",
+                &temp, &wind_speed, one_h
+            );
+        }
+    }
+
+    format!("Temperature: {}C, Wind Speed: {}m/s", &temp, &wind_speed)
 }
 
 fn write_cache_file(
