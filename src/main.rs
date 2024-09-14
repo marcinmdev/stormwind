@@ -34,8 +34,16 @@ enum Units {
 }
 
 #[derive(Deserialize)]
-struct Config {
+struct ConfigFileValues {
     config: Args,
+}
+
+struct Config {
+    lat: f32,
+    lon: f32,
+    lang: String,
+    units: Units,
+    cache: u16,
 }
 
 #[derive(Parser, Deserialize, Debug)]
@@ -65,16 +73,16 @@ fn main() {
     let config_file_name = "stormwind.toml";
     let config_path = format!("{}/stormwind/{}", config_dir.display(), &config_file_name);
 
-    let mut config = Args {
-        lat: Some(52.23),
-        lon: Some(21.01),
-        lang: Some("en".to_string()),
-        units: Some(Units::Standard),
-        cache: Some(600),
+    let mut config = Config {
+        lat: 52.23,
+        lon: 21.01,
+        lang: String::from("en"),
+        units: Units::Metric,
+        cache: 600,
     };
 
     if let Ok(config_file_content) = fs::read_to_string(&config_path) {
-        let config_data: Config = match toml::from_str(&config_file_content) {
+        let config_data: ConfigFileValues = match toml::from_str(&config_file_content) {
             Ok(d) => d,
             Err(_) => {
                 eprintln!("Unable to load config from `{}`", &config_path);
@@ -83,56 +91,56 @@ fn main() {
         };
 
         if let Some(lat_from_config) = config_data.config.lat {
-            config.lat = Some(lat_from_config)
+            config.lat = lat_from_config
         }
 
         if let Some(lon_from_config) = config_data.config.lon {
-            config.lon = Some(lon_from_config)
+            config.lon = lon_from_config
         }
 
         if let Some(lang_from_config) = config_data.config.lang {
-            config.lang = Some(lang_from_config)
+            config.lang = lang_from_config
         }
 
         if let Some(units_from_config) = config_data.config.units {
-            config.units = Some(units_from_config)
+            config.units = units_from_config
         }
         if let Some(cache_from_config) = config_data.config.cache {
-            config.cache = Some(cache_from_config)
+            config.cache = cache_from_config
         }
     }
 
     let args = Args::parse();
 
     if let Some(lat_from_args) = args.lat {
-        config.lat = Some(lat_from_args)
+        config.lat = lat_from_args
     }
 
     if let Some(lon_from_args) = args.lon {
-        config.lon = Some(lon_from_args)
+        config.lon = lon_from_args
     }
 
     if let Some(lang_from_args) = args.lang {
-        config.lang = Some(lang_from_args)
+        config.lang = lang_from_args
     }
 
     if let Some(units_from_args) = args.units {
-        config.units = Some(units_from_args)
+        config.units = units_from_args
     }
 
     if let Some(cache_from_args) = args.cache {
-        config.cache = Some(cache_from_args)
+        config.cache = cache_from_args
     }
 
-    println!(
-        "config values: {:?} {:?} {:?} {:?} {:?}",
-        config.lat,
-        config.lon,
-        config.lang,
-        config.units,
-        config.cache
-    );
-
+    // println!(
+    //     "config values: {} {} {} {} {}",
+    //     config.lat,
+    //     config.lon,
+    //     config.lang,
+    //     config.units,
+    //     config.cache
+    // );
+    //
     let api_key_dir = home_dir().unwrap();
     let api_key_name = ".owm-key";
     let api_key_path = format!("{}/{}", api_key_dir.display(), api_key_name);
@@ -142,7 +150,7 @@ fn main() {
     });
 
     let url = format!(
-        "https://api.openweathermap.org/data/2.5/weather?lat={:?}&lon={:?}&lang={:?}&units={:?}&appid={:?}",
+        "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&lang={}&units={}&appid={}",
         config.lat, config.lon, config.lang, config.units, api_key
     );
 
@@ -163,8 +171,8 @@ fn main() {
 
         let cache_age = current_time - (cache_mtime as u64);
 
-        if cache_age < config.cache.unwrap().into() {
-            if let Ok(report) = read_cache_file(&cache_path) {
+        if cache_age < config.cache.into() {
+            if let Ok(report) = read_cache_file(&cache_path, &config) {
                 println!("Cached response: {}", format_output(&report));
                 exit(0);
             }
@@ -175,7 +183,7 @@ fn main() {
         Ok(response) => {
             let report: WeatherReportCurrent = response.json().expect("Invalid response from API");
 
-            write_cache_file(&report, &cache_path).unwrap();
+            write_cache_file(&report, &cache_path, &config).unwrap();
 
             println!("{}", format_output(&report));
         }
@@ -189,30 +197,48 @@ fn format_output(report: &WeatherReportCurrent) -> String {
     format!("Temperature: {}C, Wind Speed: {}m/s", temp, wind_speed)
 }
 
-fn write_cache_file(report: &WeatherReportCurrent, cache_path: &String) -> std::io::Result<()> {
+fn write_cache_file(
+    report: &WeatherReportCurrent,
+    cache_path: &String,
+    config: &Config,
+) -> std::io::Result<()> {
     File::create(cache_path)?;
 
     let mut f = File::options().append(true).open(cache_path)?;
     writeln!(&mut f, env!("CARGO_PKG_VERSION"))?;
-    //TODO config params as struct
-    // writeln!(&mut f, "{}",lat);
-    // writeln!(&mut f, env!("CARGO_PKG_VERSION"))?;
+    writeln!(&mut f, "{}", config.lat)?;
+    writeln!(&mut f, "{}", config.lon)?;
+    writeln!(&mut f, "{}", config.lang)?;
+    writeln!(&mut f, "{}", config.units)?;
+
     writeln!(&mut f, "{}", report.serialize(Serializer).unwrap())?;
     Ok(())
 }
 
-fn read_cache_file(cache_path: &String) -> Result<WeatherReportCurrent, &'static str> {
+fn read_cache_file(
+    cache_path: &String,
+    config: &Config,
+) -> Result<WeatherReportCurrent, &'static str> {
     let cache_contents = fs::read_to_string(cache_path).unwrap();
 
     if cache_contents.lines().count() < 2
         || env!("CARGO_PKG_VERSION") != cache_contents.lines().next().unwrap()
     {
         File::create(cache_path).unwrap();
-        return Err("Wrong version");
+        return Err("Wrong version. Cache invalidated.");
+    }
+
+    if config.lat.to_string() != cache_contents.lines().nth(1).unwrap()
+        || config.lon.to_string() != cache_contents.lines().nth(2).unwrap()
+        || config.lang != cache_contents.lines().nth(3).unwrap()
+        || config.units.to_string() != cache_contents.lines().nth(4).unwrap()
+    {
+        File::create(cache_path).unwrap();
+        return Err("Different config values. Cache invalidated.");
     }
 
     let report: WeatherReportCurrent =
-        serde_json::from_str(cache_contents.lines().nth(1).unwrap()).unwrap();
+        serde_json::from_str(cache_contents.lines().nth(5).unwrap()).unwrap();
     Ok(report)
 }
 
