@@ -10,7 +10,7 @@ use filetime::FileTime;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::result::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -67,10 +67,7 @@ struct Args {
 fn main() {
     let client = Client::new();
 
-    let config_dir = config_dir().unwrap();
-
-    let config_file_name = "stormwind.toml";
-    let config_path = format!("{}/stormwind/{}", config_dir.display(), &config_file_name);
+    let config_path = Path::new(&config_dir().unwrap()).join("stormwind").join("stormwind.toml");
 
     let mut config = Config {
         lat: 52.23,
@@ -84,7 +81,7 @@ fn main() {
         let config_data: ConfigFileValues = match toml::from_str(&config_file_content) {
             Ok(d) => d,
             Err(_) => {
-                eprintln!("Unable to load config from `{}`", &config_path);
+                eprintln!("Unable to load config from `{}`", &config_path.display());
                 exit(1);
             }
         };
@@ -153,9 +150,7 @@ fn main() {
         config.lat, config.lon, config.lang, config.units, api_key
     );
 
-    let cache_dir = cache_dir().unwrap();
-    let cache_file_name = "/stormwind.cache";
-    let cache_path = format!("{}{}", cache_dir.display(), cache_file_name);
+    let cache_path = Path::new(&cache_dir().unwrap()).join("stormwind.cache");
 
     if Path::new(&cache_path).exists() {
         let cache_file_metadata = fs::metadata(&cache_path).unwrap();
@@ -214,7 +209,7 @@ fn format_output(report: &WeatherReportCurrent) -> String {
 
 fn write_cache_file(
     report: &WeatherReportCurrent,
-    cache_path: &String,
+    cache_path: &PathBuf,
     config: &Config,
 ) -> std::io::Result<()> {
     File::create(cache_path)?;
@@ -231,7 +226,7 @@ fn write_cache_file(
 }
 
 fn read_cache_file(
-    cache_path: &String,
+    cache_path: &PathBuf,
     config: &Config,
 ) -> Result<WeatherReportCurrent, &'static str> {
     let cache_contents = fs::read_to_string(cache_path).unwrap();
