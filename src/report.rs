@@ -42,6 +42,14 @@ pub struct Rain {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Snow {
+    #[serde(rename = "1h")]
+    pub one_h: Option<f32>,
+    #[serde(rename = "3h")]
+    pub tree_h: Option<f32>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Clouds {
     pub all: u32,
 }
@@ -65,6 +73,7 @@ pub struct WeatherReportCurrent {
     pub visibility: u32,
     pub wind: Wind,
     pub rain: Option<Rain>,
+    pub snow: Option<Snow>,
     pub clouds: Clouds,
     pub dt: u64,
     pub sys: Sys,

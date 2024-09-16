@@ -67,7 +67,9 @@ struct Args {
 fn main() {
     let client = Client::new();
 
-    let config_path = Path::new(&config_dir().unwrap()).join("stormwind").join("stormwind.toml");
+    let config_path = Path::new(&config_dir().unwrap())
+        .join("stormwind")
+        .join("stormwind.toml");
 
     let mut config = Config {
         lat: 52.23,
@@ -189,22 +191,28 @@ fn format_output(report: &WeatherReportCurrent) -> String {
     let temp = report.main.feels_like;
     let wind_speed = report.wind.speed;
     let clouds = report.clouds.all;
-    //TODO cleanup - format append?
-    //TODO snow
+
+    let mut output = format!(
+        "Temperature: {}C, Wind Speed: {} m/s, Clouds: {}%",
+        &temp, &wind_speed, &clouds
+    );
+
     //TODO icons
     if let Some(rain) = &report.rain {
         if let Some(one_h) = rain.one_h {
-            return format!(
-                "Temperature: {}C, Wind Speed: {}m/s, Clouds: {}%, Rain: {}mm",
-                &temp, &wind_speed, &clouds, one_h
-            );
+            let rain_segment = format!(", Rain: {}mm", one_h);
+            output += &rain_segment;
         }
     }
 
-    format!(
-        "Temperature: {}C, Wind Speed: {} m/s, Clouds: {}%",
-        &temp, &wind_speed, &clouds
-    )
+    if let Some(snow) = &report.snow {
+        if let Some(one_h) = snow.one_h {
+            let snow_segment = format!(", Snow: {}mm", one_h);
+            output += &snow_segment;
+        }
+    }
+
+    output
 }
 
 fn write_cache_file(
