@@ -2,35 +2,35 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Coord {
-   pub lat: f32,
-   pub lon: f32,
+    pub lat: f32,
+    pub lon: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Weather {
-   pub id: u32,
-   pub main: String,
-   pub description: String,
-   pub icon: String,
+    pub id: u32,
+    pub main: String,
+    pub description: String,
+    pub icon: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MainWeather {
-   pub temp: f32,
-   pub feels_like: f32,
-   pub temp_min: f32,
-   pub temp_max: f32,
-   pub pressure: f32,
-   pub humidity: f32,
-   pub sea_level: f32,
-   pub grnd_level: f32,
+    pub temp: f32,
+    pub feels_like: f32,
+    pub temp_min: f32,
+    pub temp_max: f32,
+    pub pressure: f32,
+    pub humidity: f32,
+    pub sea_level: f32,
+    pub grnd_level: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Wind {
-   pub speed: f32,
-   pub deg: f32,
-   pub gust: Option<f32>,
+    pub speed: f32,
+    pub deg: f32,
+    pub gust: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
