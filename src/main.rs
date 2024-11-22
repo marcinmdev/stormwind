@@ -24,7 +24,6 @@ mod report;
 //TODO readme
 
 #[derive(clap::ValueEnum, Clone, Debug, Deserialize, Display)]
-#[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 enum Units {
     Standard,
