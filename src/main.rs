@@ -4,8 +4,6 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Serializer;
 
-use strum::Display;
-
 use filetime::FileTime;
 use std::fs;
 use std::fs::File;
@@ -23,7 +21,7 @@ mod report;
 //TODO integration test
 //TODO readme
 
-#[derive(clap::ValueEnum, Clone, Debug, Deserialize, Display)]
+#[derive(clap::ValueEnum, Clone, Debug, Deserialize, strum::Display)]
 #[serde(rename_all = "snake_case")]
 enum Units {
     Standard,
