@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::value::Serializer;
 
 use filetime::FileTime;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -186,28 +187,34 @@ fn main() {
 
 fn format_output(report: &WeatherReportCurrent) -> String {
     let temp = report.main.feels_like;
-    let wind_speed = report.wind.speed;
-    let clouds = report.clouds.all;
 
-    let mut output = format!(
-        "Temperature: {}C, Wind Speed: {} m/s, Clouds: {}%",
-        &temp, &wind_speed, &clouds
+    let icon_map = HashMap::from([
+        ("01d", ""),
+        ("01n", ""),
+        ("02d", ""),
+        ("02n", ""),
+        ("03d", "󰖐"),
+        ("03n", "󰖐"),
+        ("04d", "󰖐"),
+        ("04n", "󰖐"),
+        ("09d", ""),
+        ("09n", ""),
+        ("10d", ""),
+        ("10n", ""),
+        ("11d", ""),
+        ("11n", ""),
+        ("13d", ""),
+        ("13n", ""),
+        ("50d", ""),
+        ("50n", ""),
+    ]);
+
+    let icon = icon_map.get(&report.weather[0].icon as &str).unwrap();
+
+    let output = format!(
+        "{} {}C",
+        &icon, &temp.round()
     );
-
-    //TODO icons
-    if let Some(rain) = &report.rain {
-        if let Some(one_h) = rain.one_h {
-            let rain_segment = format!(", Rain: {}mm", one_h);
-            output += &rain_segment;
-        }
-    }
-
-    if let Some(snow) = &report.snow {
-        if let Some(one_h) = snow.one_h {
-            let snow_segment = format!(", Snow: {}mm", one_h);
-            output += &snow_segment;
-        }
-    }
 
     output
 }
