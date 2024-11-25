@@ -128,6 +128,8 @@ fn main() {
         config.cache = cache_from_args
     }
 
+
+    //TODO hide behind debug flag
     // println!(
     //     "config values: {} {} {} {} {}",
     //     config.lat,
@@ -211,8 +213,9 @@ fn format_output(report: &WeatherReportCurrent) -> String {
 
     let icon = icon_map.get(&report.weather[0].icon as &str).unwrap();
 
+    //TODO handle units per config
     let output = format!(
-        "{} {}C",
+        "{} {}°C",
         &icon, &temp.round()
     );
 
