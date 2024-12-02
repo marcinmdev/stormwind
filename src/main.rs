@@ -19,6 +19,9 @@ use crate::report::WeatherReportCurrent;
 mod report;
 
 //NOTE https://openweathermap.org/current
+//TODO https://open-meteo.com/en/docs
+//TODO tooltip with waybar support
+//TODO remove config file
 //TODO integration test
 //TODO readme
 
