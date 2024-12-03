@@ -193,6 +193,7 @@ fn main() {
 fn format_output(report: &WeatherReportCurrent) -> String {
     let temp = report.main.feels_like;
 
+    //TODO pattern match
     let icon_map = HashMap::from([
         ("01d", ""),
         ("01n", ""),
@@ -216,6 +217,7 @@ fn format_output(report: &WeatherReportCurrent) -> String {
 
     let icon = icon_map.get(&report.weather[0].icon as &str).unwrap();
 
+    //TODO minus 0
     //TODO handle units per config
     let output = format!(
         "{} {}°C",
