@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::value::Serializer;
 
 use filetime::FileTime;
-use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -18,12 +17,12 @@ use crate::report::WeatherReportCurrent;
 
 mod report;
 
-//NOTE https://openweathermap.org/current
 //TODO https://open-meteo.com/en/docs
 //TODO tooltip with waybar support
 //TODO remove config file
 //TODO integration test
 //TODO readme
+//TODO remove default lat lon 
 
 #[derive(clap::ValueEnum, Clone, Debug, Deserialize, strum::Display)]
 #[serde(rename_all = "snake_case")]
@@ -131,7 +130,6 @@ fn main() {
         config.cache = cache_from_args
     }
 
-
     //TODO hide behind debug flag
     // println!(
     //     "config values: {} {} {} {} {}",
@@ -193,35 +191,31 @@ fn main() {
 fn format_output(report: &WeatherReportCurrent) -> String {
     let temp = report.main.feels_like;
 
-    let icon_map = HashMap::from([
-        ("01d", ""),
-        ("01n", ""),
-        ("02d", ""),
-        ("02n", ""),
-        ("03d", "󰖐"),
-        ("03n", "󰖐"),
-        ("04d", "󰖐"),
-        ("04n", "󰖐"),
-        ("09d", ""),
-        ("09n", ""),
-        ("10d", ""),
-        ("10n", ""),
-        ("11d", ""),
-        ("11n", ""),
-        ("13d", ""),
-        ("13n", ""),
-        ("50d", ""),
-        ("50n", ""),
-    ]);
-
-    let icon = icon_map.get(&report.weather[0].icon as &str).unwrap();
+    let icon = match &report.weather[0].icon as &str {
+        "01d" => "",
+        "01n" => "",
+        "02d" => "",
+        "02n" => "",
+        "03d" => "󰖐",
+        "03n" => "󰖐",
+        "04d" => "󰖐",
+        "04n" => "󰖐",
+        "09d" => "",
+        "09n" => "",
+        "10d" => "",
+        "10n" => "",
+        "11d" => "",
+        "11n" => "",
+        "13d" => "",
+        "13n" => "",
+        "50d" => "",
+        "50n" => "",
+        _ => "",
+    };
 
     //TODO minus 0
     //TODO handle units per config
-    let output = format!(
-        "{} {}°",
-        &icon, &temp.round().abs()
-    );
+    let output = format!("{} {}°", &icon, &temp.round().abs());
 
     output
 }
