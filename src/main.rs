@@ -219,7 +219,7 @@ fn format_output(report: &WeatherReportCurrent) -> String {
     //TODO minus 0
     //TODO handle units per config
     let output = format!(
-        "{} {}°C",
+        "{} {}°",
         &icon, &temp.round().abs()
     );
 
