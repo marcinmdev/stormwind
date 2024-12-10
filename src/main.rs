@@ -1,17 +1,10 @@
 use clap::Parser;
-use dirs::{cache_dir, home_dir};
+use dirs::home_dir;
 use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
-use serde_json::value::Serializer;
+use serde::Deserialize;
 
-use filetime::FileTime;
 use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::{Path, PathBuf};
 use std::process::exit;
-use std::result::Result;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::report::WeatherReportCurrent;
 
@@ -21,7 +14,6 @@ mod report;
 //TODO tooltip with waybar support
 //TODO integration test
 //TODO readme
-//TODO ? remove default lat lon 
 
 #[derive(clap::ValueEnum, Clone, Debug, Deserialize, strum::Display)]
 #[serde(rename_all = "snake_case")]
@@ -31,65 +23,26 @@ enum Units {
     Imperial,
 }
 
-struct Config {
-    lat: f32,
-    lon: f32,
-    lang: String,
-    units: Units,
-    cache: u16,
-}
-
 #[derive(Parser, Deserialize, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(long, help = "Latitude of location")]
-    lat: Option<f32>,
+    lat: f32,
 
     #[arg(long, help = "Longitude of location")]
-    lon: Option<f32>,
+    lon: f32,
 
-    #[arg(long)]
-    lang: Option<String>,
+    #[arg(long, default_value="en")]
+    lang: String,
 
-    #[arg(long, value_enum)]
-    units: Option<Units>,
-
-    #[arg(long, help = "Cache lifetime in seconds")]
-    cache: Option<u16>,
+    #[arg(long, value_enum, default_value_t=Units::Metric)]
+    units: Units,
 }
 
 fn main() {
     let client = Client::new();
 
-    let mut config = Config {
-        lat: 52.23,
-        lon: 21.01,
-        lang: String::from("en"),
-        units: Units::Metric,
-        cache: 600,
-    };
-
     let args = Args::parse();
-
-    if let Some(lat_from_args) = args.lat {
-        config.lat = lat_from_args
-    }
-
-    if let Some(lon_from_args) = args.lon {
-        config.lon = lon_from_args
-    }
-
-    if let Some(lang_from_args) = args.lang {
-        config.lang = lang_from_args
-    }
-
-    if let Some(units_from_args) = args.units {
-        config.units = units_from_args
-    }
-
-    if let Some(cache_from_args) = args.cache {
-        config.cache = cache_from_args
-    }
 
     let api_key_dir = home_dir().unwrap();
     let api_key_name = ".owm-key";
@@ -101,37 +54,13 @@ fn main() {
 
     let url = format!(
         "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&lang={}&units={}&appid={}",
-        config.lat, config.lon, config.lang, config.units, api_key
+        args.lat, args.lon, args.lang, args.units, api_key
     );
 
-    let cache_path = Path::new(&cache_dir().unwrap()).join("stormwind.cache");
-
-    if Path::new(&cache_path).exists() {
-        let cache_file_metadata = fs::metadata(&cache_path).unwrap();
-
-        let cache_mtime =
-            FileTime::from_last_modification_time(&cache_file_metadata).unix_seconds();
-
-        let current_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs();
-
-        let cache_age = current_time - (cache_mtime as u64);
-
-        if cache_age < config.cache.into() {
-            if let Ok(report) = read_cache_file(&cache_path, &config) {
-                println!("Cached response: {}", format_output(&report));
-                exit(0);
-            }
-        }
-    }
 
     match client.get(url).send() {
         Ok(response) => {
             let report: WeatherReportCurrent = response.json().expect("Invalid response from API");
-
-            write_cache_file(&report, &cache_path, &config).unwrap();
 
             println!("{}", format_output(&report));
         }
@@ -169,51 +98,6 @@ fn format_output(report: &WeatherReportCurrent) -> String {
     let output = format!("{} {}°", &icon, &temp.round().abs());
 
     output
-}
-
-fn write_cache_file(
-    report: &WeatherReportCurrent,
-    cache_path: &PathBuf,
-    config: &Config,
-) -> std::io::Result<()> {
-    File::create(cache_path)?;
-
-    let mut f = File::options().append(true).open(cache_path)?;
-    writeln!(&mut f, env!("CARGO_PKG_VERSION"))?;
-    writeln!(&mut f, "{}", config.lat)?;
-    writeln!(&mut f, "{}", config.lon)?;
-    writeln!(&mut f, "{}", config.lang)?;
-    writeln!(&mut f, "{}", config.units)?;
-
-    writeln!(&mut f, "{}", report.serialize(Serializer).unwrap())?;
-    Ok(())
-}
-
-fn read_cache_file(
-    cache_path: &PathBuf,
-    config: &Config,
-) -> Result<WeatherReportCurrent, &'static str> {
-    let cache_contents = fs::read_to_string(cache_path).unwrap();
-
-    if cache_contents.lines().count() < 2
-        || env!("CARGO_PKG_VERSION") != cache_contents.lines().next().unwrap()
-    {
-        File::create(cache_path).unwrap();
-        return Err("Wrong version. Cache invalidated.");
-    }
-
-    if config.lat.to_string() != cache_contents.lines().nth(1).unwrap()
-        || config.lon.to_string() != cache_contents.lines().nth(2).unwrap()
-        || config.lang != cache_contents.lines().nth(3).unwrap()
-        || config.units.to_string() != cache_contents.lines().nth(4).unwrap()
-    {
-        File::create(cache_path).unwrap();
-        return Err("Different config values. Cache invalidated.");
-    }
-
-    let report: WeatherReportCurrent =
-        serde_json::from_str(cache_contents.lines().nth(5).unwrap()).unwrap();
-    Ok(report)
 }
 
 #[cfg(test)]
