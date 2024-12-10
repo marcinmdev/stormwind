@@ -1,5 +1,5 @@
 use clap::Parser;
-use dirs::{cache_dir, config_dir, home_dir};
+use dirs::{cache_dir, home_dir};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Serializer;
@@ -19,10 +19,9 @@ mod report;
 
 //TODO https://open-meteo.com/en/docs
 //TODO tooltip with waybar support
-//TODO remove config file
 //TODO integration test
 //TODO readme
-//TODO remove default lat lon 
+//TODO ? remove default lat lon 
 
 #[derive(clap::ValueEnum, Clone, Debug, Deserialize, strum::Display)]
 #[serde(rename_all = "snake_case")]
@@ -30,11 +29,6 @@ enum Units {
     Standard,
     Metric,
     Imperial,
-}
-
-#[derive(Deserialize)]
-struct ConfigFileValues {
-    config: Args,
 }
 
 struct Config {
