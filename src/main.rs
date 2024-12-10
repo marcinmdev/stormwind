@@ -67,10 +67,6 @@ struct Args {
 fn main() {
     let client = Client::new();
 
-    let config_path = Path::new(&config_dir().unwrap())
-        .join("stormwind")
-        .join("stormwind.toml");
-
     let mut config = Config {
         lat: 52.23,
         lon: 21.01,
@@ -78,35 +74,6 @@ fn main() {
         units: Units::Metric,
         cache: 600,
     };
-
-    if let Ok(config_file_content) = fs::read_to_string(&config_path) {
-        let config_data: ConfigFileValues = match toml::from_str(&config_file_content) {
-            Ok(d) => d,
-            Err(_) => {
-                eprintln!("Unable to load config from `{}`", &config_path.display());
-                exit(1);
-            }
-        };
-
-        if let Some(lat_from_config) = config_data.config.lat {
-            config.lat = lat_from_config
-        }
-
-        if let Some(lon_from_config) = config_data.config.lon {
-            config.lon = lon_from_config
-        }
-
-        if let Some(lang_from_config) = config_data.config.lang {
-            config.lang = lang_from_config
-        }
-
-        if let Some(units_from_config) = config_data.config.units {
-            config.units = units_from_config
-        }
-        if let Some(cache_from_config) = config_data.config.cache {
-            config.cache = cache_from_config
-        }
-    }
 
     let args = Args::parse();
 
@@ -130,16 +97,6 @@ fn main() {
         config.cache = cache_from_args
     }
 
-    //TODO hide behind debug flag
-    // println!(
-    //     "config values: {} {} {} {} {}",
-    //     config.lat,
-    //     config.lon,
-    //     config.lang,
-    //     config.units,
-    //     config.cache
-    // );
-    //
     let api_key_dir = home_dir().unwrap();
     let api_key_name = ".owm-key";
     let api_key_path = format!("{}/{}", api_key_dir.display(), api_key_name);
