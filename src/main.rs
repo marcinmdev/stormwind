@@ -10,8 +10,8 @@ use crate::report::WeatherReportCurrent;
 
 mod report;
 
-//TODO https://open-meteo.com/en/docs
-//TODO tooltip with waybar support
+//TODO ? https://open-meteo.com/en/docs
+//TODO ? tooltip with waybar support
 //TODO integration test
 //TODO readme
 
@@ -32,13 +32,13 @@ struct Args {
     #[arg(long, help = "Longitude of location")]
     lon: f32,
 
-    #[arg(long, default_value="en")]
+    #[arg(long, default_value = "en")]
     lang: String,
 
     #[arg(long, value_enum, default_value_t=Units::Metric)]
     units: Units,
 
-    #[arg(long, default_value="$HOME/.omw-key")]
+    #[arg(long, default_value = "$HOME/.owm-key")]
     key_path: String,
 }
 
@@ -47,11 +47,16 @@ fn main() {
 
     let args = Args::parse();
 
+    let api_key_path_default = "$HOME/.owm-key";
 
-    // TODO: handle args key_path
-    let api_key_dir = home_dir().unwrap();
-    let api_key_name = ".owm-key";
-    let api_key_path = format!("{}/{}", api_key_dir.display(), api_key_name);
+    let mut api_key_path = args.key_path;
+
+    if api_key_path == api_key_path_default {
+        let api_key_dir = home_dir().unwrap();
+        let api_key_name = ".owm-key";
+        api_key_path = format!("{}/{}", api_key_dir.display(), api_key_name);
+    }
+
     let api_key = fs::read_to_string(&api_key_path).unwrap_or_else(|_| {
         eprintln!("Error: no api key present in path: {}", &api_key_path);
         exit(0)
@@ -61,7 +66,6 @@ fn main() {
         "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&lang={}&units={}&appid={}",
         args.lat, args.lon, args.lang, args.units, api_key
     );
-
 
     match client.get(url).send() {
         Ok(response) => {
