@@ -37,6 +37,9 @@ struct Args {
 
     #[arg(long, value_enum, default_value_t=Units::Metric)]
     units: Units,
+
+    #[arg(long, default_value="$HOME/.omw-key")]
+    key_path: String,
 }
 
 fn main() {
@@ -44,6 +47,8 @@ fn main() {
 
     let args = Args::parse();
 
+
+    // TODO: handle args key_path
     let api_key_dir = home_dir().unwrap();
     let api_key_name = ".owm-key";
     let api_key_path = format!("{}/{}", api_key_dir.display(), api_key_name);
