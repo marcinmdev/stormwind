@@ -1,17 +1,15 @@
 use clap::Parser;
 use dirs::home_dir;
 use reqwest::blocking::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use std::fs;
 use std::process::exit;
-
+use serde_json::{json, Value};
 use crate::report::WeatherReportCurrent;
 
 mod report;
 
-//TODO ? https://open-meteo.com/en/docs
-//TODO ? tooltip with waybar support
 //TODO integration test
 //TODO readme
 
@@ -40,6 +38,15 @@ struct Args {
 
     #[arg(long, default_value = "$HOME/.owm-key")]
     key_path: String,
+}
+
+#[derive(Serialize, Debug)]
+struct WaybarOutput {
+    text: String,
+    alt: String,
+    tooltip: String,
+    class: String,
+    percentage: i8,
 }
 
 fn main() {
@@ -77,7 +84,7 @@ fn main() {
     };
 }
 
-fn format_output(report: &WeatherReportCurrent) -> String {
+fn format_output(report: &WeatherReportCurrent) -> Value {
     let temp = report.main.feels_like;
 
     let icon = match &report.weather[0].icon as &str {
@@ -102,11 +109,15 @@ fn format_output(report: &WeatherReportCurrent) -> String {
         _ => "",
     };
 
-    //TODO minus 0
-    //TODO handle units per config
-    let output = format!("{} {}°", &icon, &temp.round().abs());
+    let waybar_output = WaybarOutput{
+        text: format!("{} {}°", &icon, &temp.round().abs()),
+        alt: String::from("test alt"),
+        class: String::from("randomClass"),
+        percentage: 13,
+        tooltip: String::from("test tooltip"),
+    };
 
-    output
+    json!(waybar_output)
 }
 
 #[cfg(test)]
