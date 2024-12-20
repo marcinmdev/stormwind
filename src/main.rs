@@ -67,7 +67,7 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
     let icon = match &report.current.weather_code {
         0 => "",
         1 | 2 => "",
-        3 => "",
+        3 => "󰖐",
         45 | 48 => "",
         51 | 53 | 55 => "",
         56 | 57 => "󰙿",
@@ -82,7 +82,7 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
     };
 
     let tooltip = format!(
-        "󰖝 {} {}\r {}{}\r {}{}",
+        "󰖝 {} {}\r {}{}\r󰖐 {}{}",
         report.current.wind_speed_10m,
         report.current_units.wind_speed_10m,
         report.current.relative_humidity_2m,
