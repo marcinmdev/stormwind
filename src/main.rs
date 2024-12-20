@@ -16,7 +16,7 @@ mod report;
 enum UnitsTemperature {
     #[default]
     Celsius,
-    Fahrenheit
+    Fahrenheit,
 }
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
@@ -26,7 +26,7 @@ enum UnitsWindspeed {
     Kmh,
     Ms,
     Mph,
-    Kn
+    Kn,
 }
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
@@ -34,7 +34,7 @@ enum UnitsWindspeed {
 enum UnitsPrecipitation {
     #[default]
     Mm,
-    Inch
+    Inch,
 }
 
 #[derive(Parser, Deserialize, Debug)]
@@ -51,7 +51,7 @@ struct Args {
 
     #[arg(long, value_enum, default_value_t)]
     units_wind_speed: UnitsWindspeed,
-    
+
     #[arg(long, value_enum, default_value_t)]
     units_precipitation: UnitsPrecipitation,
 }
@@ -122,13 +122,4 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
     };
 
     json!(waybar_output)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn internal() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
 }
