@@ -77,9 +77,11 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
         _ => "",
     };
 
+    let tooltip = format!("Wind speed: {} {}", report.current.wind_speed_10m, report.current_units.wind_speed_10m);
+
     let waybar_output = WaybarOutput{
         text: format!("{} {}°", &icon, &temp.round().abs()),
-        tooltip: String::from("test tooltip"),
+        tooltip: tooltip,
     };
 
     json!(waybar_output)
