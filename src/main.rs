@@ -11,12 +11,30 @@ mod report;
 //TODO readme
 //TODO conditional tooltip - rain/snow
 
-#[derive(clap::ValueEnum, Clone, Debug, Deserialize, strum::Display)]
-#[serde(rename_all = "snake_case")]
-enum Units {
-    Standard,
-    Metric,
-    Imperial,
+#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+enum UnitsTemperature {
+    #[default]
+    Celsius,
+    Fahrenheit
+}
+
+#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+enum UnitsWindspeed {
+    #[default]
+    Kmh,
+    Ms,
+    Mph,
+    Kn
+}
+
+#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+enum UnitsPrecipitation {
+    #[default]
+    Mm,
+    Inch
 }
 
 #[derive(Parser, Deserialize, Debug)]
@@ -28,8 +46,14 @@ struct Args {
     #[arg(long, help = "Longitude of location")]
     lon: f32,
 
-    #[arg(long, value_enum, default_value_t=Units::Metric)]
-    units: Units,
+    #[arg(long, value_enum, default_value_t)]
+    units_temperature: UnitsTemperature,
+
+    #[arg(long, value_enum, default_value_t)]
+    units_wind_speed: UnitsWindspeed,
+    
+    #[arg(long, value_enum, default_value_t)]
+    units_precipitation: UnitsPrecipitation,
 }
 
 #[derive(Serialize, Debug)]
@@ -47,8 +71,9 @@ fn main() {
         "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}\
         &current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,\
         rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,\
-        wind_speed_10m,wind_direction_10m,wind_gusts_10m",
-        args.lat, args.lon,
+        wind_speed_10m,wind_direction_10m,wind_gusts_10m&\
+        temperature_unit={}&wind_speed_unit={}&precipitation_unit={}",
+        args.lat, args.lon, args.units_temperature, args.units_wind_speed, args.units_precipitation
     );
 
     match client.get(url).send() {
