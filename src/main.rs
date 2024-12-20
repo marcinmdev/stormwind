@@ -1,10 +1,7 @@
 use clap::Parser;
-use dirs::home_dir;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
-use std::fs;
-use std::process::exit;
 use serde_json::{json, Value};
 use crate::report::WeatherReportCurrent;
 
@@ -30,23 +27,14 @@ struct Args {
     #[arg(long, help = "Longitude of location")]
     lon: f32,
 
-    #[arg(long, default_value = "en")]
-    lang: String,
-
     #[arg(long, value_enum, default_value_t=Units::Metric)]
     units: Units,
-
-    #[arg(long, default_value = "$HOME/.owm-key")]
-    key_path: String,
 }
 
 #[derive(Serialize, Debug)]
 struct WaybarOutput {
     text: String,
-    alt: String,
     tooltip: String,
-    class: String,
-    percentage: i8,
 }
 
 fn main() {
@@ -54,24 +42,9 @@ fn main() {
 
     let args = Args::parse();
 
-    let api_key_path_default = "$HOME/.owm-key";
-
-    let mut api_key_path = args.key_path;
-
-    if api_key_path == api_key_path_default {
-        let api_key_dir = home_dir().unwrap();
-        let api_key_name = ".owm-key";
-        api_key_path = format!("{}/{}", api_key_dir.display(), api_key_name);
-    }
-
-    let api_key = fs::read_to_string(&api_key_path).unwrap_or_else(|_| {
-        eprintln!("Error: no api key present in path: {}", &api_key_path);
-        exit(0)
-    });
-
     let url = format!(
-        "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&lang={}&units={}&appid={}",
-        args.lat, args.lon, args.lang, args.units, api_key
+        "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m",
+        args.lat, args.lon,
     );
 
     match client.get(url).send() {
@@ -85,35 +58,27 @@ fn main() {
 }
 
 fn format_output(report: &WeatherReportCurrent) -> Value {
-    let temp = report.main.feels_like;
+    let temp = report.current.temperature_2m;
 
-    let icon = match &report.weather[0].icon as &str {
-        "01d" => "",
-        "01n" => "",
-        "02d" => "",
-        "02n" => "",
-        "03d" => "󰖐",
-        "03n" => "󰖐",
-        "04d" => "󰖐",
-        "04n" => "󰖐",
-        "09d" => "",
-        "09n" => "",
-        "10d" => "",
-        "10n" => "",
-        "11d" => "",
-        "11n" => "",
-        "13d" => "",
-        "13n" => "",
-        "50d" => "",
-        "50n" => "",
+    let icon = match &report.current.weather_code {
+        0 => "",
+        1|2 => "",
+        3 => "󰖐",
+        45|48 => "",
+        51|53|55 => "",
+        56|57 => "",
+        61|63|65 => "",
+        66|67 => "",
+        71|73|75|77 => "",
+        80|81|82 => "",
+        85|86 => "",
+        95|96|97 => "",
+
         _ => "",
     };
 
     let waybar_output = WaybarOutput{
         text: format!("{} {}°", &icon, &temp.round().abs()),
-        alt: String::from("test alt"),
-        class: String::from("randomClass"),
-        percentage: 13,
         tooltip: String::from("test tooltip"),
     };
 
