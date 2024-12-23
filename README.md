@@ -39,5 +39,4 @@ Yes, `jq` can be used to extract data from output, ie. `stormwind --lat xx --lon
 Please create issue. I'm open to suggestion.
 
 ## License
-#TODO github url
-Waybar is licensed under the MIT license. [See LICENSE for more information](https://github.com/TODO).
+Waybar is licensed under the MIT license. [See LICENSE for more information](https://github.com/marcinmdev/stormwind/blob/master/LICENSE).
