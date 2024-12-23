@@ -131,3 +131,60 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
 
     json!(waybar_output)
 }
+
+#[cfg(test)]
+mod tests {
+    use report::{Current, CurrentUnits};
+
+    use super::*;
+
+    #[test]
+    fn test_format_output() {
+        let test_report_current_units = CurrentUnits {
+            relative_humidity_2m: String::from("%"),
+            time: String::from("iso8601"),
+            interval: String::from("seconds"),
+            rain: String::from("mm"),
+            apparent_temperature: String::from("°C"),
+            temperature_2m: String::from("°C"),
+            showers: String::from("mm"),
+            snowfall: String::from("cm"),
+            cloud_cover: String::from("%"),
+            pressure_msl: String::from("hPa"),
+            surface_pressure: String::from("hPa"),
+            precipitation: String::from("mm"),
+            weather_code: String::from("wmo code"),
+            wind_direction_10m: String::from("°"),
+            wind_gusts_10m: String::from("km/h"),
+            wind_speed_10m: String::from("km/h"),
+        };
+
+        let test_report_current_night = Current {
+            relative_humidity_2m: 10.11,
+            time: String::from("2024-12-12-12T12:12"),
+            interval: 900,
+            rain: 10.0,
+            apparent_temperature: 20.0,
+            temperature_2m: 15.3,
+            showers: 5.4,
+            snowfall: 4.1,
+            cloud_cover: 50.1,
+            pressure_msl: 1009.5,
+            surface_pressure: 978.2,
+            precipitation: 11.3,
+            weather_code: 0,
+            wind_direction_10m: 334.9,
+            wind_gusts_10m: 11.5,
+            wind_speed_10m: 12.4,
+            is_day: 0,
+        };
+
+        let test_report_night = WeatherReportCurrent {
+            current_units: test_report_current_units,
+            current: test_report_current_night,
+        };
+
+        let output_night = format_output(&test_report_night);
+        assert!(output_night.to_string().contains(""));
+    }
+}
