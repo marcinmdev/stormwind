@@ -7,8 +7,6 @@ use serde_json::{json, Value};
 
 mod report;
 
-//TODO integration test
-//TODO readme
 //TODO conditional tooltip - rain/snow
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
