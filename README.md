@@ -1,4 +1,4 @@
-#### STORMWIND
+# STORMWIND
 
 Weather indicator for [Waybar](https://github.com/Alexays/Waybar/) using [Open-Meteo.com](https://open-meteo.com/)
 
