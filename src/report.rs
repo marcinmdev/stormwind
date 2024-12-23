@@ -1,28 +1,29 @@
 use serde::{Deserialize, Serialize};
+use compact_str::CompactString;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CurrentUnits {
-    pub time: String,
-    pub interval: String,
-    pub temperature_2m: String,
-    pub relative_humidity_2m: String,
-    pub apparent_temperature: String,
-    pub precipitation: String,
-    pub rain: String,
-    pub showers: String,
-    pub snowfall: String,
-    pub weather_code: String,
-    pub cloud_cover: String,
-    pub pressure_msl: String,
-    pub surface_pressure: String,
-    pub wind_speed_10m:	String,
-    pub wind_direction_10m: String,
-    pub wind_gusts_10m: String,
+    pub time: CompactString,
+    pub interval: CompactString,
+    pub temperature_2m: CompactString,
+    pub relative_humidity_2m: CompactString,
+    pub apparent_temperature: CompactString,
+    pub precipitation: CompactString,
+    pub rain: CompactString,
+    pub showers: CompactString,
+    pub snowfall: CompactString,
+    pub weather_code: CompactString,
+    pub cloud_cover: CompactString,
+    pub pressure_msl: CompactString,
+    pub surface_pressure: CompactString,
+    pub wind_speed_10m:	CompactString,
+    pub wind_direction_10m: CompactString,
+    pub wind_gusts_10m: CompactString,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Current {
-    pub time: String,
+    pub time: CompactString,
     pub interval: u32,
     pub temperature_2m: f32,
     pub relative_humidity_2m: f32,

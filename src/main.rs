@@ -1,9 +1,8 @@
 use clap::Parser;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-
-use crate::report::WeatherReportCurrent;
 use serde_json::{json, Value};
+use crate::report::WeatherReportCurrent;
 
 mod report;
 
@@ -141,27 +140,27 @@ mod tests {
     #[test]
     fn test_format_output() {
         let test_report_current_units = CurrentUnits {
-            relative_humidity_2m: String::from("%"),
-            time: String::from("iso8601"),
-            interval: String::from("seconds"),
-            rain: String::from("mm"),
-            apparent_temperature: String::from("°C"),
-            temperature_2m: String::from("°C"),
-            showers: String::from("mm"),
-            snowfall: String::from("cm"),
-            cloud_cover: String::from("%"),
-            pressure_msl: String::from("hPa"),
-            surface_pressure: String::from("hPa"),
-            precipitation: String::from("mm"),
-            weather_code: String::from("wmo code"),
-            wind_direction_10m: String::from("°"),
-            wind_gusts_10m: String::from("km/h"),
-            wind_speed_10m: String::from("km/h"),
+            relative_humidity_2m: CompactString::from("%"),
+            time: CompactString::from("iso8601"),
+            interval: CompactString::from("seconds"),
+            rain: CompactString::from("mm"),
+            apparent_temperature: CompactString::from("°C"),
+            temperature_2m: CompactString::from("°C"),
+            showers: CompactString::from("mm"),
+            snowfall: CompactString::from("cm"),
+            cloud_cover: CompactString::from("%"),
+            pressure_msl: CompactString::from("hPa"),
+            surface_pressure: CompactString::from("hPa"),
+            precipitation: CompactString::from("mm"),
+            weather_code: CompactString::from("wmo code"),
+            wind_direction_10m: CompactString::from("°"),
+            wind_gusts_10m: CompactString::from("km/h"),
+            wind_speed_10m: CompactString::from("km/h"),
         };
 
         let test_report_current_night = Current {
             relative_humidity_2m: 10.11,
-            time: String::from("2024-12-12-12T12:12"),
+            time: CompactString::from("2024-12-12-12T12:12"),
             interval: 900,
             rain: 10.0,
             apparent_temperature: 20.0,
