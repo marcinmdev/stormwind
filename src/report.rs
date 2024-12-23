@@ -27,6 +27,7 @@ pub struct Current {
     pub temperature_2m: f32,
     pub relative_humidity_2m: f32,
     pub apparent_temperature: f32,
+    pub is_day: u8,
     pub precipitation: f32,
     pub rain: f32,
     pub showers: f32,

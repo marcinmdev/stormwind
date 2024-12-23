@@ -89,7 +89,7 @@ fn main() {
 fn format_output(report: &WeatherReportCurrent) -> Value {
     let temp = report.current.temperature_2m;
 
-    let icon = match &report.current.weather_code {
+    let mut icon = match &report.current.weather_code {
         0 => "",
         1 | 2 => "",
         3 => "󰖐",
@@ -101,10 +101,20 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
         71 | 73 | 75 | 77 => "",
         80..=82 => "",
         85 | 86 => "",
-        95..=97 => "",
+        95..=97 => "󰖓",
 
         _ => "",
     };
+
+    let icon_night = match &report.current.weather_code {
+        0 => "",
+        1 | 2 => "",
+        _ => icon,
+    };
+
+    if report.current.is_day == 0 {
+        icon = icon_night
+    }
 
     let tooltip = format!(
         "󰖝 {} {}\r {}{}\r󰖐 {}{}",
