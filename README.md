@@ -16,6 +16,10 @@ Weather indicator for [Waybar](https://github.com/Alexays/Waybar/) using [Open-M
 ### Requirements
 * [nerd font](https://www.nerdfonts.com/)
 
+### Installation
+
+* [Releases](https://github.com/marcinmdev/stormwind/releases) 
+
 ### Waybar config
 
 Assuming that `stormwind` is in your path:
