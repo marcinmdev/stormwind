@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use crate::report::WeatherReportCurrent;
 
+
 mod report;
 
 //TODO conditional tooltip - rain/snow
@@ -134,7 +135,7 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
 #[cfg(test)]
 mod tests {
     use report::{Current, CurrentUnits};
-
+    use compact_str::CompactString;
     use super::*;
 
     #[test]
