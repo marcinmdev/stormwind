@@ -114,7 +114,7 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
         icon = icon_night
     }
 
-    let tooltip = format!(
+    let mut tooltip = format!(
         "󰖝 {} {}\r {}{}\r󰖐 {}{}",
         report.current.wind_speed_10m,
         report.current_units.wind_speed_10m,
@@ -123,6 +123,15 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
         report.current.cloud_cover,
         report.current_units.cloud_cover
     );
+
+
+    if report.current.precipitation > 0.0 {
+        tooltip = format!("{}\n: {}", tooltip, report.current.precipitation);
+    }
+
+    if report.current.snowfall > 0.0 {
+        tooltip = format!("{}\n: {}", tooltip, report.current.snowfall);
+    }
 
     let waybar_output = WaybarOutput {
         text: format!("{} {}°", &icon, &temp.round().abs()),
@@ -186,5 +195,7 @@ mod tests {
 
         let output_night = format_output(&test_report_night);
         assert!(output_night.to_string().contains(""));
+        assert!(output_night.to_string().contains(""));
+        assert!(output_night.to_string().contains(""));
     }
 }
