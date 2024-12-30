@@ -1,13 +1,10 @@
+use crate::report::WeatherReportCurrent;
 use clap::Parser;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use crate::report::WeatherReportCurrent;
-
 
 mod report;
-
-//TODO conditional tooltip - rain/snow
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
 #[strum(serialize_all = "lowercase")]
@@ -124,7 +121,6 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
         report.current_units.cloud_cover
     );
 
-
     if report.current.precipitation > 0.0 {
         tooltip = format!("{}\n: {}", tooltip, report.current.precipitation);
     }
@@ -143,9 +139,9 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use report::{Current, CurrentUnits};
-    use compact_str::CompactString;
     use super::*;
+    use compact_str::CompactString;
+    use report::{Current, CurrentUnits};
 
     #[test]
     fn test_format_output() {
