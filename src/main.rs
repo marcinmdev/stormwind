@@ -122,11 +122,11 @@ fn format_output(report: &WeatherReportCurrent) -> Value {
     );
 
     if report.current.precipitation > 0.0 {
-        tooltip = format!("{}\n: {}", tooltip, report.current.precipitation);
+        tooltip = format!("{}\n {}", tooltip, report.current.precipitation);
     }
 
     if report.current.snowfall > 0.0 {
-        tooltip = format!("{}\n: {}", tooltip, report.current.snowfall);
+        tooltip = format!("{}\n {}", tooltip, report.current.snowfall);
     }
 
     let waybar_output = WaybarOutput {
