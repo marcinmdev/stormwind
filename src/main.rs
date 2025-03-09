@@ -218,6 +218,36 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
         );
     }
 
+    // Get current AQI (first hour value)
+    if !air_quality.hourly.time.is_empty() {
+        let current_aqi_info = match aqi_standard {
+            AqiStandard::European => {
+                if !air_quality.hourly.european_aqi.is_empty() {
+                    let aqi = air_quality.hourly.european_aqi[0];
+                    let emoji = get_european_aqi_emoji(aqi);
+                    format!("😷 Air Quality: {} {}", aqi, emoji)
+                } else {
+                    String::from("😷 Air Quality: N/A ❓")
+                }
+            },
+            AqiStandard::Us => {
+                if let Some(us_aqi) = &air_quality.hourly.us_aqi {
+                    if !us_aqi.is_empty() {
+                        let aqi = us_aqi[0];
+                        let emoji = get_us_aqi_emoji(aqi);
+                        format!("😷 Air Quality: {} {}", aqi, emoji)
+                    } else {
+                        String::from("😷 Air Quality: N/A ❓")
+                    }
+                } else {
+                    String::from("😷 Air Quality: N/A ❓")
+                }
+            }
+        };
+
+        tooltip = format!("{}\n{}", tooltip, current_aqi_info);
+    }
+
     // Add hourly forecast information
     tooltip = format!("{}\n\n--------- Hourly Forecast ---------", tooltip);
 
