@@ -1,8 +1,9 @@
-use crate::report::WeatherReportCurrent;
+use crate::report::{WeatherReport, AirQualityReport};
 use clap::Parser;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use compact_str::CompactString;
 
 mod report;
 
@@ -82,7 +83,6 @@ struct WaybarOutput {
 
 fn main() {
     let client = Client::new();
-
     let args = Args::parse();
 
     // Weather API URL
