@@ -188,8 +188,7 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
 
     // Current weather information
     let mut tooltip = format!(
-        "Current Conditions\n\n\
-        🌡️ Feels like: {}{}\n\
+        "🌡️ Feels like: {}{}\n\
         💨 Wind: {} {}\n\
         💧 Humidity: {}{}\n\
         ☁️ Cloud cover: {}{}",
