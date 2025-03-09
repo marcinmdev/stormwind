@@ -97,18 +97,65 @@ fn main() {
         args.lat, args.lon, args.units_temperature, args.units_wind_speed, args.units_precipitation
     );
 
-    match client.get(url).send() {
-        Ok(response) => {
-            let report: WeatherReportCurrent = response.json().expect("Invalid response from API");
-
-            println!("{}", format_output(&report));
-        }
-        Err(_) => eprintln!("Connection error"),
+    let aqi_param = match args.aqi_standard {
+        AqiStandard::European => "european_aqi",
+        AqiStandard::Us => "us_aqi",
     };
+
+    let domain_param = match args.aqi_domain {
+        AqiDomain::Auto => "auto",
+        AqiDomain::CamsEurope => "cams_europe",
+        AqiDomain::CamsGlobal => "cams_global",
+    };
+
+    let air_quality_url = format!(
+        "https://air-quality-api.open-meteo.com/v1/air-quality?latitude={}&longitude={}\
+        &hourly={}\
+        &forecast_hours=8\
+        &domains={}",
+        args.lat, args.lon,
+        aqi_param,
+        domain_param
+    ); 
+
+    let weather_report = match client.get(&weather_url).send() {
+        Ok(response) => {
+            response.json::<WeatherReport>().expect("Invalid response from weather API")
+        }
+        Err(_) => {
+            eprintln!("Connection error to weather API");
+            std::process::exit(1);
+        }
+    };
+
+    let air_quality_report = match client.get(&air_quality_url).send() {
+        Ok(response) => {
+            response.json::<AirQualityReport>().expect("Invalid response from air quality API")
+        }
+        Err(e) => {
+            eprintln!("Connection error to air quality API: {}", e);
+            // Create a default empty report so the app can continue with just weather data
+            AirQualityReport {
+                hourly_units: report::AirQualityHourlyUnits {
+                    time: CompactString::from("iso8601"),
+                    european_aqi: CompactString::from(""),
+                    us_aqi: None,
+                },
+                hourly: report::AirQualityHourly {
+                    time: Vec::new(),
+                    european_aqi: Vec::new(),
+                    us_aqi: None,
+                },
+            }
+        }
+    };
+
+    println!("{}", format_output(&weather_report, &air_quality_report, &args.aqi_standard));
 }
 
-fn format_output(report: &WeatherReportCurrent) -> Value {
+fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_standard: &AqiStandard) -> Value {
     let temp = report.current.temperature_2m;
+    let temp_unit = &report.current_units.temperature_2m;
 
     // Get weather icon based on weather code - now using colored emojis
     let mut icon = match &report.current.weather_code {

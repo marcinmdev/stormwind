@@ -46,4 +46,28 @@ pub struct Current {
 pub struct WeatherReportCurrent {
     pub current_units: CurrentUnits,
     pub current: Current,
+    pub hourly_units: HourlyUnits,
+    pub hourly: Hourly,
+}
+
+// Add new structs for air quality data
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AirQualityHourlyUnits {
+    pub time: CompactString,
+    pub european_aqi: CompactString,
+    pub us_aqi: Option<CompactString>,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AirQualityHourly {
+    pub time: Vec<CompactString>,
+    pub european_aqi: Vec<u8>,
+    pub us_aqi: Option<Vec<u16>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AirQualityReport {
+    pub hourly_units: AirQualityHourlyUnits,
+    pub hourly: AirQualityHourly,
 }
