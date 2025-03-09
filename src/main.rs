@@ -32,6 +32,23 @@ enum UnitsPrecipitation {
     Inch,
 }
 
+#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+enum AqiStandard {
+    #[default]
+    European,
+    Us,
+}
+
+#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+enum AqiDomain {
+    #[default]
+    Auto,
+    CamsEurope,
+    CamsGlobal,
+}
+
 #[derive(Parser, Deserialize, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -49,6 +66,12 @@ struct Args {
 
     #[arg(long, value_enum, default_value_t)]
     units_precipitation: UnitsPrecipitation,
+
+    #[arg(long, value_enum, default_value_t, help = "Air Quality Index standard to use (European or US)")]
+    aqi_standard: AqiStandard,
+    
+    #[arg(long, value_enum, default_value_t, help = "AQI domain to use (auto, cams_europe, or cams_global)")]
+    aqi_domain: AqiDomain,
 }
 
 #[derive(Serialize, Debug)]
