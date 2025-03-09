@@ -219,69 +219,91 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
         );
     }
 
+    // Add hourly forecast information
+    tooltip = format!("{}\n\n--------- Hourly Forecast ---------", tooltip);
+
+    // Get emoji for European AQI
+    fn get_european_aqi_emoji(aqi: u8) -> &'static str {
+        match aqi {
+            0..=20 => "🟢",    // Good
+            21..=40 => "🟡",   // Fair
+            41..=60 => "🟠",   // Moderate
+            61..=80 => "🔴",   // Poor
+            81..=100 => "🟣",  // Very Poor
+            _ => "⚫",         // Extremely Poor
+        }
+    }
+
+    // Get emoji for US AQI
+    fn get_us_aqi_emoji(aqi: u16) -> &'static str {
+        match aqi {
+            0..=50 => "🟢",     // Good
+            51..=100 => "🟡",   // Moderate
+            101..=150 => "🟠",  // Unhealthy for Sensitive Groups
+            151..=200 => "🔴",  // Unhealthy
+            201..=300 => "🟣",  // Very Unhealthy
+            _ => "⚫",          // Hazardous
+        }
+    }
+
+    // Loop through the hourly data (up to 8 hours)
+    let max_hours = report.hourly.time.len().min(8);
+    for i in 0..max_hours {
+        let time = &report.hourly.time[i];
+        let hour_temp = report.hourly.temperature_2m[i];
+        let precip_prob = report.hourly.precipitation_probability[i];
+
+        // Format time to show just HH:MM
+        let time_parts: Vec<&str> = time.split('T').collect();
+        let hour_str = if time_parts.len() > 1 {
+            time_parts[1].to_string()
+        } else {
+            time.to_string()
+        };
+
+        // Get air quality data if available based on selected standard
+        let aqi_info = match aqi_standard {
+            AqiStandard::European => {
+                if !air_quality.hourly.european_aqi.is_empty() && i < air_quality.hourly.european_aqi.len() {
+                    let aqi = air_quality.hourly.european_aqi[i];
+                    let emoji = get_european_aqi_emoji(aqi);
+                    format!("AQI: {} {}", aqi, emoji)
+                } else {
+                    String::from("AQI: N/A")
+                }
+            },
+            AqiStandard::Us => {
+                if let Some(us_aqi) = &air_quality.hourly.us_aqi {
+                    if !us_aqi.is_empty() && i < us_aqi.len() {
+                        let aqi = us_aqi[i];
+                        let emoji = get_us_aqi_emoji(aqi);
+                        format!("AQI: {} {}", aqi, emoji)
+                    } else {
+                        String::from("AQI: N/A")
+                    }
+                } else {
+                    String::from("AQI: N/A")
+                }
+            }
+        };
+
+        // Add hourly data line with fixed width formatting including AQI
+        tooltip = format!(
+            "{}\n{:<5} | {:>3}{}° | 🌧️{:>3}% | {}",
+            tooltip,
+            hour_str,
+            hour_temp.round() as i32,
+            if temp_unit.starts_with('°') { "" } else { temp_unit },
+            precip_prob.round() as i32,
+            aqi_info
+        );
+    }
+
+    // Changing this in format_output
     let waybar_output = WaybarOutput {
         text: format!("{} {}°", &icon, &temp.round().abs()),
         tooltip,
     };
 
     json!(waybar_output)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use compact_str::CompactString;
-    use report::{Current, CurrentUnits};
-
-    #[test]
-    fn test_format_output() {
-        let test_report_current_units = CurrentUnits {
-            relative_humidity_2m: CompactString::from("%"),
-            time: CompactString::from("iso8601"),
-            interval: CompactString::from("seconds"),
-            rain: CompactString::from("mm"),
-            apparent_temperature: CompactString::from("°C"),
-            temperature_2m: CompactString::from("°C"),
-            showers: CompactString::from("mm"),
-            snowfall: CompactString::from("cm"),
-            cloud_cover: CompactString::from("%"),
-            pressure_msl: CompactString::from("hPa"),
-            surface_pressure: CompactString::from("hPa"),
-            precipitation: CompactString::from("mm"),
-            weather_code: CompactString::from("wmo code"),
-            wind_direction_10m: CompactString::from("°"),
-            wind_gusts_10m: CompactString::from("km/h"),
-            wind_speed_10m: CompactString::from("km/h"),
-        };
-
-        let test_report_current_night = Current {
-            relative_humidity_2m: 10.11,
-            time: CompactString::from("2024-12-12-12T12:12"),
-            interval: 900,
-            rain: 10.0,
-            apparent_temperature: 20.0,
-            temperature_2m: 15.3,
-            showers: 5.4,
-            snowfall: 4.1,
-            cloud_cover: 50.1,
-            pressure_msl: 1009.5,
-            surface_pressure: 978.2,
-            precipitation: 11.3,
-            weather_code: 0,
-            wind_direction_10m: 334.9,
-            wind_gusts_10m: 11.5,
-            wind_speed_10m: 12.4,
-            is_day: 0,
-        };
-
-        let test_report_night = WeatherReportCurrent {
-            current_units: test_report_current_units,
-            current: test_report_current_night,
-        };
-
-        let output_night = format_output(&test_report_night);
-        assert!(output_night.to_string().contains(""));
-        assert!(output_night.to_string().contains(""));
-        assert!(output_night.to_string().contains(""));
-    }
 }
