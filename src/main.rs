@@ -266,9 +266,9 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
                 if !air_quality.hourly.european_aqi.is_empty() && i < air_quality.hourly.european_aqi.len() {
                     let aqi = air_quality.hourly.european_aqi[i];
                     let emoji = get_european_aqi_emoji(aqi);
-                    format!("AQI: {} {}", aqi, emoji)
+                    format!("{:>3} {}", aqi, emoji)
                 } else {
-                    String::from("AQI: N/A")
+                    String::from("N/A ❓")
                 }
             },
             AqiStandard::Us => {
@@ -276,19 +276,18 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
                     if !us_aqi.is_empty() && i < us_aqi.len() {
                         let aqi = us_aqi[i];
                         let emoji = get_us_aqi_emoji(aqi);
-                        format!("AQI: {} {}", aqi, emoji)
+                        format!("{:>3} {}", aqi, emoji)
                     } else {
-                        String::from("AQI: N/A")
+                        String::from("N/A ❓")
                     }
                 } else {
-                    String::from("AQI: N/A")
+                    String::from("N/A ❓")
                 }
             }
         };
 
-        // Add hourly data line with fixed width formatting including AQI
         tooltip = format!(
-            "{}\n{:<5} | {:>3}{}° | 🌧️{:>3}% | {}",
+            "{}\n{:<5} | {:>3}{}° | 🌧️{:>3}% | AQI: {:>5}",
             tooltip,
             hour_str,
             hour_temp.round() as i32,
