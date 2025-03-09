@@ -110,49 +110,66 @@ fn main() {
 fn format_output(report: &WeatherReportCurrent) -> Value {
     let temp = report.current.temperature_2m;
 
+    // Get weather icon based on weather code - now using colored emojis
     let mut icon = match &report.current.weather_code {
-        0 => "",
-        1 | 2 => "",
-        3 => "󰖐",
-        45 | 48 => "",
-        51 | 53 | 55 => "",
-        56 | 57 => "󰙿",
-        61 | 63 | 65 => "",
-        66 | 67 => "󰙿",
-        71 | 73 | 75 | 77 => "",
-        80..=82 => "",
-        85 | 86 => "",
-        95..=97 => "󰖓",
-
-        _ => "",
+        0 => "☀️",         // Clear sky
+        1 | 2 => "🌤️",    // Partly cloudy
+        3 => "☁️",         // Overcast
+        45 | 48 => "🌫️",   // Fog
+        51 | 53 | 55 => "🌦️", // Drizzle
+        56 | 57 => "🌨️",      // Freezing drizzle
+        61 | 63 | 65 => "🌧️", // Rain
+        66 | 67 => "🌨️",      // Freezing rain
+        71 | 73 | 75 | 77 => "❄️", // Snow
+        80..=82 => "🌧️",       // Rain showers
+        85 | 86 => "🌨️",       // Snow showers
+        95..=97 => "⛈️",       // Thunderstorm
+        _ => "🌡️",             // Default/unknown
     };
 
+    // Night icons for clear and partly cloudy conditions
     let icon_night = match &report.current.weather_code {
-        0 => "",
-        1 | 2 => "",
+        0 => "🌙",         // Clear night
+        1 | 2 => "☁️",     // Partly cloudy night
         _ => icon,
     };
 
+    // Use night icon if it's night
     if report.current.is_day == 0 {
-        icon = icon_night
+        icon = icon_night;
     }
 
+    // Current weather information
     let mut tooltip = format!(
-        "󰖝 {} {}\r {}{}\r󰖐 {}{}",
-        report.current.wind_speed_10m,
-        report.current_units.wind_speed_10m,
-        report.current.relative_humidity_2m,
-        report.current_units.relative_humidity_2m,
-        report.current.cloud_cover,
-        report.current_units.cloud_cover
+        "Current Conditions\n\n\
+        🌡️ Feels like: {}{}\n\
+        💨 Wind: {} {}\n\
+        💧 Humidity: {}{}\n\
+        ☁️ Cloud cover: {}{}",
+        report.current.apparent_temperature, temp_unit,
+        report.current.wind_speed_10m, report.current_units.wind_speed_10m,
+        report.current.relative_humidity_2m, report.current_units.relative_humidity_2m,
+        report.current.cloud_cover, report.current_units.cloud_cover
     );
 
+    // Add precipitation info if present
     if report.current.precipitation > 0.0 {
-        tooltip = format!("{}\n {}", tooltip, report.current.precipitation);
+        tooltip = format!(
+            "{}\n🌧️ Precipitation: {} {}",
+            tooltip, 
+            report.current.precipitation,
+            report.current_units.precipitation
+        );
     }
 
+    // Add snowfall info if present
     if report.current.snowfall > 0.0 {
-        tooltip = format!("{}\n {}", tooltip, report.current.snowfall);
+        tooltip = format!(
+            "{}\n❄️ Snowfall: {} {}", 
+            tooltip, 
+            report.current.snowfall,
+            report.current_units.snowfall
+        );
     }
 
     let waybar_output = WaybarOutput {
