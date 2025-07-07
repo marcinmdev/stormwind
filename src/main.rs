@@ -3,7 +3,7 @@ use clap::Parser;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use compact_str::CompactString;
+
 
 mod report;
 
@@ -123,30 +123,18 @@ fn main() {
 
     let air_quality_report = match client.get(&air_quality_url).send() {
         Ok(response) => {
-            response.json::<AirQualityReport>().expect("Invalid response from air quality API")
+            response.json::<AirQualityReport>().ok()
         }
         Err(e) => {
             eprintln!("Connection error to air quality API: {}", e);
-            // Create a default empty report so the app can continue with just weather data
-            AirQualityReport {
-                hourly_units: report::AirQualityHourlyUnits {
-                    time: CompactString::from("iso8601"),
-                    european_aqi: CompactString::from(""),
-                    us_aqi: CompactString::from(""),
-                },
-                hourly: report::AirQualityHourly {
-                    time: Vec::new(),
-                    european_aqi: Vec::new(),
-                    us_aqi: Vec::new(),
-                },
-            }
+            None
         }
     };
 
-    println!("{}", format_output(&weather_report, &air_quality_report, &args.aqi_standard));
+    println!("{}", format_output(&weather_report, air_quality_report.as_ref(), &args.aqi_standard));
 }
 
-fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_standard: &AqiStandard) -> Value {
+fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>, aqi_standard: &AqiStandard) -> Value {
     let temp = report.current.temperature_2m;
     let temp_unit = &report.current_units.temperature_2m;
 
@@ -210,29 +198,31 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
     }
 
     // Get current AQI (first hour value)
-    if !air_quality.hourly.time.is_empty() {
-        let current_aqi_info = match aqi_standard {
-            AqiStandard::European => {
-                if !air_quality.hourly.european_aqi.is_empty() {
-                    let aqi = air_quality.hourly.european_aqi[0];
-                    let emoji = get_european_aqi_emoji(aqi);
-                    format!("😷 Air Quality: {} {}", aqi, emoji)
-                } else {
-                    String::from("😷 Air Quality: N/A ❓")
+    if let Some(aq) = air_quality {
+        if !aq.hourly.time.is_empty() {
+            let current_aqi_info = match aqi_standard {
+                AqiStandard::European => {
+                    if !aq.hourly.european_aqi.is_empty() {
+                        let aqi = aq.hourly.european_aqi[0];
+                        let emoji = get_european_aqi_emoji(aqi);
+                        format!("😷 Air Quality: {} {}", aqi, emoji)
+                    } else {
+                        String::from("😷 Air Quality: N/A ❓")
+                    }
+                },
+                AqiStandard::Us => {
+                    if !aq.hourly.us_aqi.is_empty() {
+                        let aqi = aq.hourly.us_aqi[0];
+                        let emoji = get_us_aqi_emoji(aqi);
+                        format!("😷 Air Quality: {} {}", aqi, emoji)
+                    } else {
+                        String::from("😷 Air Quality: N/A ❓")
+                    }
                 }
-            },
-            AqiStandard::Us => {
-                if !air_quality.hourly.us_aqi.is_empty() {
-                    let aqi = air_quality.hourly.us_aqi[0];
-                    let emoji = get_us_aqi_emoji(aqi);
-                    format!("😷 Air Quality: {} {}", aqi, emoji)
-                } else {
-                    String::from("😷 Air Quality: N/A ❓")
-                }
-            }
-        };
+            };
 
-        tooltip = format!("{}\n{}", tooltip, current_aqi_info);
+            tooltip = format!("{}\n{}", tooltip, current_aqi_info);
+        }
     }
 
     // Add hourly forecast information
@@ -278,25 +268,29 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
         };
 
         // Get air quality data if available based on selected standard
-        let aqi_info = match aqi_standard {
-            AqiStandard::European => {
-                if !air_quality.hourly.european_aqi.is_empty() && i < air_quality.hourly.european_aqi.len() {
-                    let aqi = air_quality.hourly.european_aqi[i];
-                    let emoji = get_european_aqi_emoji(aqi);
-                    format!("{:>3} {}", aqi, emoji)
-                } else {
-                    String::from("N/A ❓")
-                }
-            },
-            AqiStandard::Us => {
-                if !air_quality.hourly.us_aqi.is_empty() && i < air_quality.hourly.us_aqi.len() {
-                    let aqi = air_quality.hourly.us_aqi[i];
-                    let emoji = get_us_aqi_emoji(aqi);
-                    format!("{:>3} {}", aqi, emoji)
-                } else {
-                    String::from("N/A ❓")
+        let aqi_info = if let Some(aq) = air_quality {
+            match aqi_standard {
+                AqiStandard::European => {
+                    if !aq.hourly.european_aqi.is_empty() && i < aq.hourly.european_aqi.len() {
+                        let aqi = aq.hourly.european_aqi[i];
+                        let emoji = get_european_aqi_emoji(aqi);
+                        format!("{:>3} {}", aqi, emoji)
+                    } else {
+                        String::from("N/A ❓")
+                    }
+                },
+                AqiStandard::Us => {
+                    if !aq.hourly.us_aqi.is_empty() && i < aq.hourly.us_aqi.len() {
+                        let aqi = aq.hourly.us_aqi[i];
+                        let emoji = get_us_aqi_emoji(aqi);
+                        format!("{:>3} {}", aqi, emoji)
+                    } else {
+                        String::from("N/A ❓")
+                    }
                 }
             }
+        } else {
+            String::from("N/A ❓")
         };
 
         tooltip = format!(
