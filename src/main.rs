@@ -96,11 +96,6 @@ fn main() {
         args.lat, args.lon, args.units_temperature, args.units_wind_speed, args.units_precipitation
     );
 
-    let aqi_param = match args.aqi_standard {
-        AqiStandard::European => "european_aqi",
-        AqiStandard::Us => "us_aqi",
-    };
-
     let domain_param = match args.aqi_domain {
         AqiDomain::Auto => "auto",
         AqiDomain::CamsEurope => "cams_europe",
@@ -109,11 +104,10 @@ fn main() {
 
     let air_quality_url = format!(
         "https://air-quality-api.open-meteo.com/v1/air-quality?latitude={}&longitude={}\
-        &hourly={}\
+        &hourly=european_aqi,us_aqi\
         &forecast_hours=8\
         &domains={}",
         args.lat, args.lon,
-        aqi_param,
         domain_param
     ); 
 
@@ -138,12 +132,12 @@ fn main() {
                 hourly_units: report::AirQualityHourlyUnits {
                     time: CompactString::from("iso8601"),
                     european_aqi: CompactString::from(""),
-                    us_aqi: None,
+                    us_aqi: CompactString::from(""),
                 },
                 hourly: report::AirQualityHourly {
                     time: Vec::new(),
                     european_aqi: Vec::new(),
-                    us_aqi: None,
+                    us_aqi: Vec::new(),
                 },
             }
         }
@@ -228,14 +222,10 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
                 }
             },
             AqiStandard::Us => {
-                if let Some(us_aqi) = &air_quality.hourly.us_aqi {
-                    if !us_aqi.is_empty() {
-                        let aqi = us_aqi[0];
-                        let emoji = get_us_aqi_emoji(aqi);
-                        format!("😷 Air Quality: {} {}", aqi, emoji)
-                    } else {
-                        String::from("😷 Air Quality: N/A ❓")
-                    }
+                if !air_quality.hourly.us_aqi.is_empty() {
+                    let aqi = air_quality.hourly.us_aqi[0];
+                    let emoji = get_us_aqi_emoji(aqi);
+                    format!("😷 Air Quality: {} {}", aqi, emoji)
                 } else {
                     String::from("😷 Air Quality: N/A ❓")
                 }
@@ -299,14 +289,10 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
                 }
             },
             AqiStandard::Us => {
-                if let Some(us_aqi) = &air_quality.hourly.us_aqi {
-                    if !us_aqi.is_empty() && i < us_aqi.len() {
-                        let aqi = us_aqi[i];
-                        let emoji = get_us_aqi_emoji(aqi);
-                        format!("{:>3} {}", aqi, emoji)
-                    } else {
-                        String::from("N/A ❓")
-                    }
+                if !air_quality.hourly.us_aqi.is_empty() && i < air_quality.hourly.us_aqi.len() {
+                    let aqi = air_quality.hourly.us_aqi[i];
+                    let emoji = get_us_aqi_emoji(aqi);
+                    format!("{:>3} {}", aqi, emoji)
                 } else {
                     String::from("N/A ❓")
                 }

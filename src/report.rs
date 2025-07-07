@@ -70,7 +70,8 @@ pub struct AirQualityHourlyUnits {
     pub time: CompactString,
     #[serde(default)]
     pub european_aqi: CompactString,
-    pub us_aqi: Option<CompactString>,
+    #[serde(default)]
+    pub us_aqi: CompactString,
 }
 
 
@@ -79,7 +80,8 @@ pub struct AirQualityHourly {
     pub time: Vec<CompactString>,
     #[serde(default)]
     pub european_aqi: Vec<u8>,
-    pub us_aqi: Option<Vec<u16>>,
+    #[serde(default)]
+    pub us_aqi: Vec<u16>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
