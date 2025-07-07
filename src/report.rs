@@ -16,7 +16,7 @@ pub struct CurrentUnits {
     pub cloud_cover: CompactString,
     pub pressure_msl: CompactString,
     pub surface_pressure: CompactString,
-    pub wind_speed_10m:	CompactString,
+    pub wind_speed_10m: CompactString,
     pub wind_direction_10m: CompactString,
     pub wind_gusts_10m: CompactString,
 }
@@ -37,13 +37,55 @@ pub struct Current {
     pub cloud_cover: f32,
     pub pressure_msl: f32,
     pub surface_pressure: f32,
-    pub wind_speed_10m:	f32,
+    pub wind_speed_10m: f32,
     pub wind_direction_10m: f32,
     pub wind_gusts_10m: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct WeatherReportCurrent {
+pub struct HourlyUnits {
+    pub time: CompactString,
+    pub temperature_2m: CompactString,
+    pub precipitation_probability: CompactString,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Hourly {
+    pub time: Vec<CompactString>,
+    pub temperature_2m: Vec<f32>,
+    pub precipitation_probability: Vec<f32>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct WeatherReport {
     pub current_units: CurrentUnits,
     pub current: Current,
+    pub hourly_units: HourlyUnits,
+    pub hourly: Hourly,
+}
+
+// Add new structs for air quality data
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AirQualityHourlyUnits {
+    pub time: CompactString,
+    #[serde(default)]
+    pub european_aqi: CompactString,
+    #[serde(default)]
+    pub us_aqi: CompactString,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AirQualityHourly {
+    pub time: Vec<CompactString>,
+    #[serde(default)]
+    pub european_aqi: Vec<u8>,
+    #[serde(default)]
+    pub us_aqi: Vec<u16>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AirQualityReport {
+    pub hourly_units: AirQualityHourlyUnits,
+    pub hourly: AirQualityHourly,
 }
