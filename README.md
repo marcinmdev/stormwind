@@ -13,9 +13,6 @@ Weather indicator for [Waybar](https://github.com/Alexays/Waybar/) using [Open-M
 * `--units-wind-speed` Wind speed units, default: `kmh`. Valid values: `kmh`, `ms`, `mph`, `kn`
 * `--units-precipitation` Precipitation units, default: `mm`. Valid values `mm`, `inch`
 
-### Requirements
-* [nerd font](https://www.nerdfonts.com/)
-
 ### Installation
 
 * [Releases](https://github.com/marcinmdev/stormwind/releases) 
