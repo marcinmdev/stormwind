@@ -92,7 +92,7 @@ fn main() {
         wind_speed_10m,wind_direction_10m,wind_gusts_10m\
         &hourly=temperature_2m,precipitation_probability\
         &forecast_hours=8\
-        &temperature_unit={}&wind_speed_unit={}&precipitation_unit={}",
+        &temperature_unit={}&wind_speed_unit={}&precipitation_unit={}&timezone=auto",
         args.lat, args.lon, args.units_temperature, args.units_wind_speed, args.units_precipitation
     );
 
