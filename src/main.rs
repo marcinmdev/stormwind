@@ -85,7 +85,6 @@ fn main() {
     let client = Client::new();
     let args = Args::parse();
 
-    // Weather API URL
     let weather_url = format!(
         "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}\
         &current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,\
@@ -198,7 +197,6 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
         report.current.cloud_cover, report.current_units.cloud_cover
     );
 
-    // Add precipitation info if present
     if report.current.precipitation > 0.0 {
         tooltip = format!(
             "{}\n🌧️ Precipitation: {} {}",
@@ -208,7 +206,6 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
         );
     }
 
-    // Add snowfall info if present
     if report.current.snowfall > 0.0 {
         tooltip = format!(
             "{}\n❄️ Snowfall: {} {}", 
