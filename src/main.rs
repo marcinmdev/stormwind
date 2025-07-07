@@ -170,7 +170,7 @@ fn format_output(report: &WeatherReport, air_quality: &AirQualityReport, aqi_sta
         80..=82 => "🌧️",       // Rain showers
         85 | 86 => "🌨️",       // Snow showers
         95..=97 => "⛈️",       // Thunderstorm
-        _ => "🌡️",             // Default/unknown
+        _ => "❓",             // Default/unknown
     };
 
     // Night icons for clear and partly cloudy conditions
