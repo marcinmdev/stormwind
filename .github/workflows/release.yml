@@ -1,55 +1,28 @@
-name: Build Release Binaries
+name: Release
+
+permissions:
+  contents: write
 
 on:
-    workflow_dispatch:
-    release:
-        types: [published]
+  push:
+    tags:
+      - v[0-9]+.*
 
 jobs:
-    build-release:
-        name: release ${{ matrix.target }}
-        runs-on: ${{ matrix.os }}
-        permissions:
-            contents: write
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - target: x86_64-unknown-linux-musl
-                      os: ubuntu-latest
-                      cross: true
-                    - target: aarch64-unknown-linux-musl
-                      os: ubuntu-latest
-                      cross: true
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/create-gh-release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-        steps:
-            - uses: actions/checkout@v4
-            - uses: dtolnay/rust-toolchain@1.87.0
-              with:
-                  target: ${{ matrix.target }}
-
-            - name: Run Cross
-              if: ${{ matrix.cross }}
-              run: |
-                  cargo install cross --git https://github.com/cross-rs/cross.git --locked --rev 085092ca
-                  cross build --release --target ${{ matrix.target }}
-
-            - name: Run Cargo
-              if: ${{ !matrix.cross }}
-              run: cargo build --release --target ${{ matrix.target }}
-
-            - name: create artifact directory
-              shell: bash
-              run: |
-                  directory=stormwind-${{ matrix.target }}
-                  mkdir $directory
-                  cp README.md LICENSE NOTICE $directory
-                  cp target/${{ matrix.target }}/release/stormwind $directory
-                  tar cJf $directory.tar.xz $directory
-
-            - uses: actions/upload-artifact@v4
-              if: github.event_name == 'workflow_dispatch'
-              with:
-                  name: stormwind-${{ matrix.target }}
-                  path: "stormwind-${{ matrix.target }}.*"
-                  retention-days: 3
+  upload-assets:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: stormwind
+          token: ${{ secrets.GITHUB_TOKEN }}
