@@ -90,7 +90,7 @@ fn main() {
         &current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,\
         rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,\
         wind_speed_10m,wind_direction_10m,wind_gusts_10m\
-        &hourly=temperature_2m,precipitation_probability\
+        &hourly=temperature_2m,precipitation_probability,precipitation\
         &forecast_hours=8\
         &temperature_unit={}&wind_speed_unit={}&precipitation_unit={}&timezone=auto",
         args.lat, args.lon, args.units_temperature, args.units_wind_speed, args.units_precipitation
@@ -138,7 +138,6 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
     let temp = report.current.temperature_2m;
     let temp_unit = &report.current_units.temperature_2m;
 
-    // Get weather icon based on weather code - now using colored emojis
     let mut icon = match &report.current.weather_code {
         0 => "☀️",         // Clear sky
         1 | 2 => "🌤️",    // Partly cloudy
@@ -155,14 +154,12 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
         _ => "❓",             // Default/unknown
     };
 
-    // Night icons for clear and partly cloudy conditions
     let icon_night = match &report.current.weather_code {
         0 => "🌙",         // Clear night
         1 | 2 => "☁️",     // Partly cloudy night
         _ => icon,
     };
 
-    // Use night icon if it's night
     if report.current.is_day == 0 {
         icon = icon_night;
     }
@@ -225,10 +222,6 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
         }
     }
 
-    // Add hourly forecast information
-    tooltip = format!("{}\n\n--------- Hourly Forecast ---------", tooltip);
-
-    // Get emoji for European AQI
     fn get_european_aqi_emoji(aqi: u8) -> &'static str {
         match aqi {
             0..=20 => "🟢",    // Good
@@ -240,7 +233,6 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
         }
     }
 
-    // Get emoji for US AQI
     fn get_us_aqi_emoji(aqi: u16) -> &'static str {
         match aqi {
             0..=50 => "🟢",     // Good
@@ -252,12 +244,14 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
         }
     }
 
-    // Loop through the hourly data (up to 8 hours)
+    tooltip = format!("{}\n", tooltip);
+
     let max_hours = report.hourly.time.len().min(8);
     for i in 0..max_hours {
         let time = &report.hourly.time[i];
         let hour_temp = report.hourly.temperature_2m[i];
         let precip_prob = report.hourly.precipitation_probability[i];
+        let precip = report.hourly.precipitation[i];
 
         // Format time to show just HH:MM
         let time_parts: Vec<&str> = time.split('T').collect();
@@ -274,7 +268,7 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
                     if !aq.hourly.european_aqi.is_empty() && i < aq.hourly.european_aqi.len() {
                         let aqi = aq.hourly.european_aqi[i];
                         let emoji = get_european_aqi_emoji(aqi);
-                        format!("{:>3} {}", aqi, emoji)
+                        format!("{} {}", aqi, emoji)
                     } else {
                         String::from("N/A ❓")
                     }
@@ -283,7 +277,7 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
                     if !aq.hourly.us_aqi.is_empty() && i < aq.hourly.us_aqi.len() {
                         let aqi = aq.hourly.us_aqi[i];
                         let emoji = get_us_aqi_emoji(aqi);
-                        format!("{:>3} {}", aqi, emoji)
+                        format!("{} {}", aqi, emoji)
                     } else {
                         String::from("N/A ❓")
                     }
@@ -294,12 +288,14 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
         };
 
         tooltip = format!(
-            "{}\n{:<5} | {:>3}{}° | 🌧️{:>3}% | AQI: {:>5}",
+            "{}\n{:<5} | {:>2}{}° | 🌧️{:>3}% {:.2}{} | AQI: {:>4}",
             tooltip,
             hour_str,
             hour_temp.round() as i32,
             if temp_unit.starts_with('°') { "" } else { temp_unit },
             precip_prob.round() as i32,
+            precip,
+            report.current_units.precipitation,
             aqi_info
         );
     }
