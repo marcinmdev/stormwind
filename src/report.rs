@@ -46,7 +46,7 @@ pub struct Current {
 pub struct HourlyUnits {
     pub time: CompactString,
     pub temperature_2m: CompactString,
-    pub precipitation_probability: CompactString,
+    pub precipitation: CompactString,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -54,6 +54,7 @@ pub struct Hourly {
     pub time: Vec<CompactString>,
     pub temperature_2m: Vec<f32>,
     pub precipitation_probability: Vec<f32>,
+    pub precipitation: Vec<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
