@@ -1,9 +1,8 @@
-use crate::report::{WeatherReport, AirQualityReport};
+use crate::report::{AirQualityReport, WeatherReport};
 use clap::Parser;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-
 
 mod report;
 
@@ -68,10 +67,20 @@ struct Args {
     #[arg(long, value_enum, default_value_t)]
     units_precipitation: UnitsPrecipitation,
 
-    #[arg(long, value_enum, default_value_t, help = "Air Quality Index standard to use (European or US)")]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        help = "Air Quality Index standard to use (European or US)"
+    )]
     aqi_standard: AqiStandard,
-    
-    #[arg(long, value_enum, default_value_t, help = "AQI domain to use (auto, cams_europe, or cams_global)")]
+
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        help = "AQI domain to use (auto, cams_europe, or cams_global)"
+    )]
     aqi_domain: AqiDomain,
 }
 
@@ -107,14 +116,13 @@ fn main() {
         &hourly=european_aqi,us_aqi\
         &forecast_hours=8\
         &domains={}",
-        args.lat, args.lon,
-        domain_param
-    ); 
+        args.lat, args.lon, domain_param
+    );
 
     let weather_report = match client.get(&weather_url).send() {
-        Ok(response) => {
-            response.json::<WeatherReport>().expect("Invalid response from weather API")
-        }
+        Ok(response) => response
+            .json::<WeatherReport>()
+            .expect("Invalid response from weather API"),
         Err(_) => {
             eprintln!("Connection error to weather API");
             std::process::exit(1);
@@ -122,41 +130,50 @@ fn main() {
     };
 
     let air_quality_report = match client.get(&air_quality_url).send() {
-        Ok(response) => {
-            response.json::<AirQualityReport>().ok()
-        }
+        Ok(response) => response.json::<AirQualityReport>().ok(),
         Err(e) => {
             eprintln!("Connection error to air quality API: {}", e);
             None
         }
     };
 
-    println!("{}", format_output(&weather_report, air_quality_report.as_ref(), &args.aqi_standard));
+    println!(
+        "{}",
+        format_output(
+            &weather_report,
+            air_quality_report.as_ref(),
+            &args.aqi_standard
+        )
+    );
 }
 
-fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>, aqi_standard: &AqiStandard) -> Value {
+fn format_output(
+    report: &WeatherReport,
+    air_quality: Option<&AirQualityReport>,
+    aqi_standard: &AqiStandard,
+) -> Value {
     let temp = report.current.temperature_2m;
     let temp_unit = &report.current_units.temperature_2m;
 
     let mut icon = match &report.current.weather_code {
-        0 => "☀️",         // Clear sky
-        1 | 2 => "🌤️",    // Partly cloudy
-        3 => "☁️",         // Overcast
-        45 | 48 => "🌫️",   // Fog
-        51 | 53 | 55 => "🌦️", // Drizzle
-        56 | 57 => "🌨️",      // Freezing drizzle
-        61 | 63 | 65 => "🌧️", // Rain
-        66 | 67 => "🌨️",      // Freezing rain
+        0 => "☀️",                 // Clear sky
+        1 | 2 => "🌤️",             // Partly cloudy
+        3 => "☁️",                 // Overcast
+        45 | 48 => "🌫️",           // Fog
+        51 | 53 | 55 => "🌦️",      // Drizzle
+        56 | 57 => "🌨️",           // Freezing drizzle
+        61 | 63 | 65 => "🌧️",      // Rain
+        66 | 67 => "🌨️",           // Freezing rain
         71 | 73 | 75 | 77 => "❄️", // Snow
-        80..=82 => "🌧️",       // Rain showers
-        85 | 86 => "🌨️",       // Snow showers
-        95..=97 => "⛈️",       // Thunderstorm
-        _ => "❓",             // Default/unknown
+        80..=82 => "🌧️",           // Rain showers
+        85 | 86 => "🌨️",           // Snow showers
+        95..=97 => "⛈️",           // Thunderstorm
+        _ => "❓",                 // Default/unknown
     };
 
     let icon_night = match &report.current.weather_code {
-        0 => "🌙",         // Clear night
-        1 | 2 => "☁️",     // Partly cloudy night
+        0 => "🌙",     // Clear night
+        1 | 2 => "☁️", // Partly cloudy night
         _ => icon,
     };
 
@@ -170,27 +187,27 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
         💨 Wind: {} {}\n\
         💧 Humidity: {}{}\n\
         ☁️ Cloud cover: {}{}",
-        report.current.apparent_temperature, temp_unit,
-        report.current.wind_speed_10m, report.current_units.wind_speed_10m,
-        report.current.relative_humidity_2m, report.current_units.relative_humidity_2m,
-        report.current.cloud_cover, report.current_units.cloud_cover
+        report.current.apparent_temperature,
+        temp_unit,
+        report.current.wind_speed_10m,
+        report.current_units.wind_speed_10m,
+        report.current.relative_humidity_2m,
+        report.current_units.relative_humidity_2m,
+        report.current.cloud_cover,
+        report.current_units.cloud_cover
     );
 
     if report.current.precipitation > 0.0 {
         tooltip = format!(
             "{}\n🌧️ Precipitation: {} {}",
-            tooltip, 
-            report.current.precipitation,
-            report.current_units.precipitation
+            tooltip, report.current.precipitation, report.current_units.precipitation
         );
     }
 
     if report.current.snowfall > 0.0 {
         tooltip = format!(
-            "{}\n❄️ Snowfall: {} {}", 
-            tooltip, 
-            report.current.snowfall,
-            report.current_units.snowfall
+            "{}\n❄️ Snowfall: {} {}",
+            tooltip, report.current.snowfall, report.current_units.snowfall
         );
     }
 
@@ -206,7 +223,7 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
                     } else {
                         String::from("😷 Air Quality: N/A ❓")
                     }
-                },
+                }
                 AqiStandard::Us => {
                     if !aq.hourly.us_aqi.is_empty() {
                         let aqi = aq.hourly.us_aqi[0];
@@ -224,23 +241,23 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
 
     fn get_european_aqi_emoji(aqi: u8) -> &'static str {
         match aqi {
-            0..=20 => "🟢",    // Good
-            21..=40 => "🟡",   // Fair
-            41..=60 => "🟠",   // Moderate
-            61..=80 => "🔴",   // Poor
-            81..=100 => "🟣",  // Very Poor
-            _ => "⚫",         // Extremely Poor
+            0..=20 => "🟢",   // Good
+            21..=40 => "🟡",  // Fair
+            41..=60 => "🟠",  // Moderate
+            61..=80 => "🔴",  // Poor
+            81..=100 => "🟣", // Very Poor
+            _ => "⚫",        // Extremely Poor
         }
     }
 
     fn get_us_aqi_emoji(aqi: u16) -> &'static str {
         match aqi {
-            0..=50 => "🟢",     // Good
-            51..=100 => "🟡",   // Moderate
-            101..=150 => "🟠",  // Unhealthy for Sensitive Groups
-            151..=200 => "🔴",  // Unhealthy
-            201..=300 => "🟣",  // Very Unhealthy
-            _ => "⚫",          // Hazardous
+            0..=50 => "🟢",    // Good
+            51..=100 => "🟡",  // Moderate
+            101..=150 => "🟠", // Unhealthy for Sensitive Groups
+            151..=200 => "🔴", // Unhealthy
+            201..=300 => "🟣", // Very Unhealthy
+            _ => "⚫",         // Hazardous
         }
     }
 
@@ -272,7 +289,7 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
                     } else {
                         String::from("N/A ❓")
                     }
-                },
+                }
                 AqiStandard::Us => {
                     if !aq.hourly.us_aqi.is_empty() && i < aq.hourly.us_aqi.len() {
                         let aqi = aq.hourly.us_aqi[i];
@@ -292,7 +309,11 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
             tooltip,
             hour_str,
             hour_temp.round() as i32,
-            if temp_unit.starts_with('°') { "" } else { temp_unit },
+            if temp_unit.starts_with('°') {
+                ""
+            } else {
+                temp_unit
+            },
             precip_prob.round() as i32,
             precip,
             report.current_units.precipitation,
@@ -308,3 +329,4 @@ fn format_output(report: &WeatherReport, air_quality: Option<&AirQualityReport>,
 
     json!(waybar_output)
 }
+
