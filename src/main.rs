@@ -3,6 +3,7 @@ use clap::Parser;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::time::Duration;
 
 mod report;
 
@@ -90,8 +91,63 @@ struct WaybarOutput {
     tooltip: String,
 }
 
+fn fetch_weather(client: &Client, url: &str) -> Result<WeatherReport, String> {
+    let backoffs = [0, 2, 4];
+
+    for i in 0..backoffs.len() {
+        if backoffs[i] > 0 {
+            std::thread::sleep(Duration::from_secs(backoffs[i] as u64));
+        }
+
+        match client.get(url).send() {
+            Ok(response) => {
+                if !response.status().is_success() {
+                    continue;
+                }
+                if let Ok(report) = response.json::<WeatherReport>() {
+                    return Ok(report);
+                }
+            }
+            Err(_) => {}
+        }
+    }
+
+    Err("All attempts failed".to_string())
+}
+
+fn fetch_air_quality(client: &Client, url: &str) -> Option<AirQualityReport> {
+    let backoffs = [0, 2, 4];
+
+    for i in 0..backoffs.len() {
+        if backoffs[i] > 0 {
+            std::thread::sleep(Duration::from_secs(backoffs[i] as u64));
+        }
+
+        if let Ok(response) = client.get(url).send() {
+            if response.status().is_success() {
+                if let Ok(report) = response.json::<AirQualityReport>() {
+                    return Some(report);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn format_fallback() -> Value {
+    json!({
+        "text": "⚠ --",
+        "tooltip": "Unable to fetch weather data"
+    })
+}
+
 fn main() {
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .expect("Failed to create HTTP client");
+
     let args = Args::parse();
 
     let weather_url = format!(
@@ -119,23 +175,15 @@ fn main() {
         args.lat, args.lon, domain_param
     );
 
-    let weather_report = match client.get(&weather_url).send() {
-        Ok(response) => response
-            .json::<WeatherReport>()
-            .expect("Invalid response from weather API"),
+    let weather_report = match fetch_weather(&client, &weather_url) {
+        Ok(report) => report,
         Err(_) => {
-            eprintln!("Connection error to weather API");
-            std::process::exit(1);
+            println!("{}", format_fallback());
+            return;
         }
     };
 
-    let air_quality_report = match client.get(&air_quality_url).send() {
-        Ok(response) => response.json::<AirQualityReport>().ok(),
-        Err(e) => {
-            eprintln!("Connection error to air quality API: {}", e);
-            None
-        }
-    };
+    let air_quality_report = fetch_air_quality(&client, &air_quality_url);
 
     println!(
         "{}",
