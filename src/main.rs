@@ -1,12 +1,25 @@
-use crate::report::{AirQualityReport, WeatherReport};
-use clap::Parser;
-use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-
 mod report;
 
-#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+use crate::report::{AirQualityReport, WeatherReport};
+use clap::Parser;
+use reqwest::blocking::{Client, Response};
+use reqwest::Url;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use std::fmt::Write;
+use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::Duration;
+
+const REQUEST_TIMEOUT_SECS: u64 = 10;
+const MAX_ATTEMPTS: u32 = 3;
+const RETRY_DELAY_MS: u64 = 1500;
+const FORECAST_HOURS: usize = 8;
+
+const WEATHER_API: &str = "https://api.open-meteo.com/v1/forecast";
+const AIR_QUALITY_API: &str = "https://air-quality-api.open-meteo.com/v1/air-quality";
+
+#[derive(clap::ValueEnum, Clone, Copy, Default, Debug, strum::Display)]
 #[strum(serialize_all = "lowercase")]
 enum UnitsTemperature {
     #[default]
@@ -14,7 +27,7 @@ enum UnitsTemperature {
     Fahrenheit,
 }
 
-#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[derive(clap::ValueEnum, Clone, Copy, Default, Debug, strum::Display)]
 #[strum(serialize_all = "lowercase")]
 enum UnitsWindspeed {
     #[default]
@@ -24,7 +37,7 @@ enum UnitsWindspeed {
     Kn,
 }
 
-#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[derive(clap::ValueEnum, Clone, Copy, Default, Debug, strum::Display)]
 #[strum(serialize_all = "lowercase")]
 enum UnitsPrecipitation {
     #[default]
@@ -32,7 +45,7 @@ enum UnitsPrecipitation {
     Inch,
 }
 
-#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
+#[derive(clap::ValueEnum, Clone, Copy, Default, Debug, strum::Display)]
 #[strum(serialize_all = "lowercase")]
 enum AqiStandard {
     #[default]
@@ -40,8 +53,38 @@ enum AqiStandard {
     Us,
 }
 
-#[derive(clap::ValueEnum, Clone, Default, Debug, Deserialize, strum::Display)]
-#[strum(serialize_all = "lowercase")]
+impl AqiStandard {
+    fn values(self, aq: &AirQualityReport) -> &[Option<u16>] {
+        match self {
+            Self::European => &aq.hourly.european_aqi,
+            Self::Us => &aq.hourly.us_aqi,
+        }
+    }
+
+    fn emoji(self, aqi: u16) -> &'static str {
+        match self {
+            Self::European => match aqi {
+                0..=20 => "🟢",   // Good
+                21..=40 => "🟡",  // Fair
+                41..=60 => "🟠",  // Moderate
+                61..=80 => "🔴",  // Poor
+                81..=100 => "🟣", // Very Poor
+                _ => "⚫",        // Extremely Poor
+            },
+            Self::Us => match aqi {
+                0..=50 => "🟢",    // Good
+                51..=100 => "🟡",  // Moderate
+                101..=150 => "🟠", // Unhealthy for Sensitive Groups
+                151..=200 => "🔴", // Unhealthy
+                201..=300 => "🟣", // Very Unhealthy
+                _ => "⚫",         // Hazardous
+            },
+        }
+    }
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Default, Debug, strum::Display)]
+#[strum(serialize_all = "snake_case")]
 enum AqiDomain {
     #[default]
     Auto,
@@ -49,7 +92,7 @@ enum AqiDomain {
     CamsGlobal,
 }
 
-#[derive(Parser, Deserialize, Debug)]
+#[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(long, help = "Latitude of location")]
@@ -71,7 +114,7 @@ struct Args {
         long,
         value_enum,
         default_value_t,
-        help = "Air Quality Index standard to use (European or US)"
+        help = "Air Quality Index standard to use"
     )]
     aqi_standard: AqiStandard,
 
@@ -79,7 +122,7 @@ struct Args {
         long,
         value_enum,
         default_value_t,
-        help = "AQI domain to use (auto, cams_europe, or cams_global)"
+        help = "Air quality model domain to use"
     )]
     aqi_domain: AqiDomain,
 }
@@ -90,242 +133,330 @@ struct WaybarOutput {
     tooltip: String,
 }
 
+fn get_with_retry(client: &Client, url: &Url) -> Result<Response, String> {
+    let mut last_err = String::new();
+
+    for attempt in 1..=MAX_ATTEMPTS {
+        match client.get(url.clone()).send() {
+            Ok(response) if response.status().is_success() => return Ok(response),
+            Ok(response) => last_err = format!("HTTP {}", response.status()),
+            Err(e) => last_err = e.to_string(),
+        }
+
+        if attempt < MAX_ATTEMPTS {
+            thread::sleep(Duration::from_millis(RETRY_DELAY_MS));
+        }
+    }
+
+    Err(last_err)
+}
+
+fn fetch<T: DeserializeOwned>(client: &Client, url: &Url) -> Result<T, String> {
+    get_with_retry(client, url)?
+        .json()
+        .map_err(|e| e.to_string())
+}
+
+fn weather_url(args: &Args) -> Url {
+    Url::parse_with_params(
+        WEATHER_API,
+        &[
+            ("latitude", args.lat.to_string()),
+            ("longitude", args.lon.to_string()),
+            (
+                "current",
+                "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,\
+                 precipitation,snowfall,weather_code,cloud_cover,wind_speed_10m"
+                    .to_string(),
+            ),
+            (
+                "hourly",
+                "temperature_2m,precipitation_probability,precipitation".to_string(),
+            ),
+            ("forecast_hours", FORECAST_HOURS.to_string()),
+            ("temperature_unit", args.units_temperature.to_string()),
+            ("wind_speed_unit", args.units_wind_speed.to_string()),
+            ("precipitation_unit", args.units_precipitation.to_string()),
+            ("timezone", "auto".to_string()),
+        ],
+    )
+    .expect("WEATHER_API is a valid URL")
+}
+
+fn air_quality_url(args: &Args) -> Url {
+    Url::parse_with_params(
+        AIR_QUALITY_API,
+        &[
+            ("latitude", args.lat.to_string()),
+            ("longitude", args.lon.to_string()),
+            ("hourly", "european_aqi,us_aqi".to_string()),
+            ("forecast_hours", FORECAST_HOURS.to_string()),
+            ("domains", args.aqi_domain.to_string()),
+        ],
+    )
+    .expect("AIR_QUALITY_API is a valid URL")
+}
+
+fn cache_path(lat: f32, lon: f32) -> PathBuf {
+    let dir = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+        .unwrap_or_else(std::env::temp_dir);
+
+    dir.join(format!("stormwind-{lat:.4}-{lon:.4}.json"))
+}
+
+fn load_cached_output(path: &Path) -> Option<String> {
+    std::fs::read_to_string(path).ok()
+}
+
+fn save_cached_output(path: &Path, output: &str) {
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(path, output);
+}
+
 fn main() {
-    let client = Client::new();
     let args = Args::parse();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .build()
+        .expect("Failed to build HTTP client");
+    let cache_file = cache_path(args.lat, args.lon);
 
-    let weather_url = format!(
-        "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}\
-        &current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,\
-        rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,\
-        wind_speed_10m,wind_direction_10m,wind_gusts_10m\
-        &hourly=temperature_2m,precipitation_probability,precipitation\
-        &forecast_hours=8\
-        &temperature_unit={}&wind_speed_unit={}&precipitation_unit={}&timezone=auto",
-        args.lat, args.lon, args.units_temperature, args.units_wind_speed, args.units_precipitation
-    );
-
-    let domain_param = match args.aqi_domain {
-        AqiDomain::Auto => "auto",
-        AqiDomain::CamsEurope => "cams_europe",
-        AqiDomain::CamsGlobal => "cams_global",
-    };
-
-    let air_quality_url = format!(
-        "https://air-quality-api.open-meteo.com/v1/air-quality?latitude={}&longitude={}\
-        &hourly=european_aqi,us_aqi\
-        &forecast_hours=8\
-        &domains={}",
-        args.lat, args.lon, domain_param
-    );
-
-    let weather_report = match client.get(&weather_url).send() {
-        Ok(response) => response
-            .json::<WeatherReport>()
-            .expect("Invalid response from weather API"),
-        Err(_) => {
-            eprintln!("Connection error to weather API");
+    let weather_report: WeatherReport = match fetch(&client, &weather_url(&args)) {
+        Ok(report) => report,
+        Err(e) => {
+            eprintln!("Weather API error: {e}");
+            if let Some(cached) = load_cached_output(&cache_file) {
+                println!("{cached}");
+                return;
+            }
             std::process::exit(1);
         }
     };
 
-    let air_quality_report = match client.get(&air_quality_url).send() {
-        Ok(response) => response.json::<AirQualityReport>().ok(),
-        Err(e) => {
-            eprintln!("Connection error to air quality API: {}", e);
-            None
-        }
-    };
+    let air_quality_report = fetch::<AirQualityReport>(&client, &air_quality_url(&args))
+        .inspect_err(|e| eprintln!("Air quality API error: {e}"))
+        .ok();
 
-    println!(
-        "{}",
-        format_output(
-            &weather_report,
-            air_quality_report.as_ref(),
-            &args.aqi_standard
-        )
+    let output = format_output(
+        &weather_report,
+        air_quality_report.as_ref(),
+        args.aqi_standard,
     );
+    let json = serde_json::to_string(&output).expect("WaybarOutput is serializable");
+
+    save_cached_output(&cache_file, &json);
+    println!("{json}");
+}
+
+fn weather_icon(code: u8, is_day: bool) -> &'static str {
+    match (code, is_day) {
+        (0, true) => "☀️",                        // Clear sky
+        (0, false) => "🌙",                       // Clear night
+        (1 | 2, true) => "🌤️",                    // Partly cloudy
+        (1 | 2, false) | (3, _) => "☁️",          // Partly cloudy night / overcast
+        (45 | 48, _) => "🌫️",                     // Fog
+        (51 | 53 | 55, _) => "🌦️",                // Drizzle
+        (61 | 63 | 65 | 80..=82, _) => "🌧️",      // Rain / rain showers
+        (56 | 57 | 66 | 67 | 85 | 86, _) => "🌨️", // Freezing drizzle/rain, snow showers
+        (71 | 73 | 75 | 77, _) => "❄️",           // Snow
+        (95 | 96 | 99, _) => "⛈️",                // Thunderstorm (with hail)
+        _ => "❓",                                // Unknown
+    }
+}
+
+fn aqi_label(air_quality: Option<&AirQualityReport>, standard: AqiStandard, hour: usize) -> String {
+    air_quality
+        .and_then(|aq| standard.values(aq).get(hour).copied().flatten())
+        .map_or_else(
+            || String::from("N/A ❓"),
+            |aqi| format!("{aqi} {}", standard.emoji(aqi)),
+        )
 }
 
 fn format_output(
     report: &WeatherReport,
     air_quality: Option<&AirQualityReport>,
-    aqi_standard: &AqiStandard,
-) -> Value {
-    let temp = report.current.temperature_2m;
-    let temp_unit = &report.current_units.temperature_2m;
+    aqi_standard: AqiStandard,
+) -> WaybarOutput {
+    let current = &report.current;
+    let units = &report.current_units;
 
-    let mut icon = match &report.current.weather_code {
-        0 => "☀️",                 // Clear sky
-        1 | 2 => "🌤️",             // Partly cloudy
-        3 => "☁️",                 // Overcast
-        45 | 48 => "🌫️",           // Fog
-        51 | 53 | 55 => "🌦️",      // Drizzle
-        56 | 57 => "🌨️",           // Freezing drizzle
-        61 | 63 | 65 => "🌧️",      // Rain
-        66 | 67 => "🌨️",           // Freezing rain
-        71 | 73 | 75 | 77 => "❄️", // Snow
-        80..=82 => "🌧️",           // Rain showers
-        85 | 86 => "🌨️",           // Snow showers
-        95..=97 => "⛈️",           // Thunderstorm
-        _ => "❓",                 // Default/unknown
-    };
-
-    let icon_night = match &report.current.weather_code {
-        0 => "🌙",     // Clear night
-        1 | 2 => "☁️", // Partly cloudy night
-        _ => icon,
-    };
-
-    if report.current.is_day == 0 {
-        icon = icon_night;
-    }
-
-    // Current weather information
     let mut tooltip = format!(
         "🌡️ Feels like: {}{}\n\
-        💨 Wind: {} {}\n\
-        💧 Humidity: {}{}\n\
-        ☁️ Cloud cover: {}{}",
-        report.current.apparent_temperature,
-        temp_unit,
-        report.current.wind_speed_10m,
-        report.current_units.wind_speed_10m,
-        report.current.relative_humidity_2m,
-        report.current_units.relative_humidity_2m,
-        report.current.cloud_cover,
-        report.current_units.cloud_cover
+         💨 Wind: {} {}\n\
+         💧 Humidity: {}{}\n\
+         ☁️ Cloud cover: {}{}",
+        current.apparent_temperature,
+        units.temperature_2m,
+        current.wind_speed_10m,
+        units.wind_speed_10m,
+        current.relative_humidity_2m,
+        units.relative_humidity_2m,
+        current.cloud_cover,
+        units.cloud_cover,
     );
 
-    if report.current.precipitation > 0.0 {
-        tooltip = format!(
-            "{}\n🌧️ Precipitation: {} {}",
-            tooltip, report.current.precipitation, report.current_units.precipitation
-        );
-    }
-
-    if report.current.snowfall > 0.0 {
-        tooltip = format!(
-            "{}\n❄️ Snowfall: {} {}",
-            tooltip, report.current.snowfall, report.current_units.snowfall
-        );
-    }
-
-    // Get current AQI (first hour value)
-    if let Some(aq) = air_quality {
-        if !aq.hourly.time.is_empty() {
-            let current_aqi_info = match aqi_standard {
-                AqiStandard::European => {
-                    if !aq.hourly.european_aqi.is_empty() {
-                        let aqi = aq.hourly.european_aqi[0];
-                        let emoji = get_european_aqi_emoji(aqi);
-                        format!("😷 Air Quality: {} {}", aqi, emoji)
-                    } else {
-                        String::from("😷 Air Quality: N/A ❓")
-                    }
-                }
-                AqiStandard::Us => {
-                    if !aq.hourly.us_aqi.is_empty() {
-                        let aqi = aq.hourly.us_aqi[0];
-                        let emoji = get_us_aqi_emoji(aqi);
-                        format!("😷 Air Quality: {} {}", aqi, emoji)
-                    } else {
-                        String::from("😷 Air Quality: N/A ❓")
-                    }
-                }
-            };
-
-            tooltip = format!("{}\n{}", tooltip, current_aqi_info);
-        }
-    }
-
-    fn get_european_aqi_emoji(aqi: u8) -> &'static str {
-        match aqi {
-            0..=20 => "🟢",   // Good
-            21..=40 => "🟡",  // Fair
-            41..=60 => "🟠",  // Moderate
-            61..=80 => "🔴",  // Poor
-            81..=100 => "🟣", // Very Poor
-            _ => "⚫",        // Extremely Poor
-        }
-    }
-
-    fn get_us_aqi_emoji(aqi: u16) -> &'static str {
-        match aqi {
-            0..=50 => "🟢",    // Good
-            51..=100 => "🟡",  // Moderate
-            101..=150 => "🟠", // Unhealthy for Sensitive Groups
-            151..=200 => "🔴", // Unhealthy
-            201..=300 => "🟣", // Very Unhealthy
-            _ => "⚫",         // Hazardous
-        }
-    }
-
-    tooltip = format!("{}\n", tooltip);
-
-    let max_hours = report.hourly.time.len().min(8);
-    for i in 0..max_hours {
-        let time = &report.hourly.time[i];
-        let hour_temp = report.hourly.temperature_2m[i];
-        let precip_prob = report.hourly.precipitation_probability[i];
-        let precip = report.hourly.precipitation[i];
-
-        // Format time to show just HH:MM
-        let time_parts: Vec<&str> = time.split('T').collect();
-        let hour_str = if time_parts.len() > 1 {
-            time_parts[1].to_string()
-        } else {
-            time.to_string()
-        };
-
-        // Get air quality data if available based on selected standard
-        let aqi_info = if let Some(aq) = air_quality {
-            match aqi_standard {
-                AqiStandard::European => {
-                    if !aq.hourly.european_aqi.is_empty() && i < aq.hourly.european_aqi.len() {
-                        let aqi = aq.hourly.european_aqi[i];
-                        let emoji = get_european_aqi_emoji(aqi);
-                        format!("{} {}", aqi, emoji)
-                    } else {
-                        String::from("N/A ❓")
-                    }
-                }
-                AqiStandard::Us => {
-                    if !aq.hourly.us_aqi.is_empty() && i < aq.hourly.us_aqi.len() {
-                        let aqi = aq.hourly.us_aqi[i];
-                        let emoji = get_us_aqi_emoji(aqi);
-                        format!("{} {}", aqi, emoji)
-                    } else {
-                        String::from("N/A ❓")
-                    }
-                }
-            }
-        } else {
-            String::from("N/A ❓")
-        };
-
-        tooltip = format!(
-            "{}\n{:<5} | {:>2}{}° | 🌧️{:>3}% {:.2}{} | AQI: {:>4}",
+    if current.precipitation > 0.0 {
+        let _ = write!(
             tooltip,
-            hour_str,
-            hour_temp.round() as i32,
-            if temp_unit.starts_with('°') {
-                ""
-            } else {
-                temp_unit
-            },
-            precip_prob.round() as i32,
-            precip,
-            report.current_units.precipitation,
-            aqi_info
+            "\n🌧️ Precipitation: {} {}",
+            current.precipitation, units.precipitation
         );
     }
 
-    let waybar_output = WaybarOutput {
-        text: format!("{} {}°", &icon, temp.round() as i32),
-        tooltip,
-    };
+    if current.snowfall > 0.0 {
+        let _ = write!(
+            tooltip,
+            "\n❄️ Snowfall: {} {}",
+            current.snowfall, units.snowfall
+        );
+    }
 
-    json!(waybar_output)
+    if air_quality.is_some() {
+        let _ = write!(
+            tooltip,
+            "\n😷 Air Quality: {}",
+            aqi_label(air_quality, aqi_standard, 0)
+        );
+    }
+
+    tooltip.push('\n');
+
+    let hourly = &report.hourly;
+    let hours = hourly
+        .time
+        .iter()
+        .zip(&hourly.temperature_2m)
+        .zip(&hourly.precipitation_probability)
+        .zip(&hourly.precipitation)
+        .take(FORECAST_HOURS)
+        .enumerate();
+
+    for (i, (((time, temp), precip_prob), precip)) in hours {
+        // "2026-10-14T08:00" -> "08:00"
+        let hour = time.split_once('T').map_or(time.as_str(), |(_, t)| t);
+
+        let _ = write!(
+            tooltip,
+            "\n{hour:<5} | {:>2}° | 🌧️{:>3}% {precip:.2}{} | AQI: {:>4}",
+            temp.round() as i32,
+            precip_prob.round() as i32,
+            units.precipitation,
+            aqi_label(air_quality, aqi_standard, i),
+        );
+    }
+
+    WaybarOutput {
+        text: format!(
+            "{} {}°",
+            weather_icon(current.weather_code, current.is_day != 0),
+            current.temperature_2m.round() as i32
+        ),
+        tooltip,
+    }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn weather(code: u8, is_day: u8) -> WeatherReport {
+        serde_json::from_value(json!({
+            "current_units": {
+                "temperature_2m": "°C",
+                "relative_humidity_2m": "%",
+                "precipitation": "mm",
+                "snowfall": "cm",
+                "cloud_cover": "%",
+                "wind_speed_10m": "km/h"
+            },
+            "current": {
+                "temperature_2m": 12.6,
+                "relative_humidity_2m": 80.0,
+                "apparent_temperature": 11.0,
+                "is_day": is_day,
+                "precipitation": 0.0,
+                "snowfall": 0.0,
+                "weather_code": code,
+                "cloud_cover": 50.0,
+                "wind_speed_10m": 10.0
+            },
+            "hourly": {
+                "time": ["2026-10-14T08:00", "2026-10-14T09:00"],
+                "temperature_2m": [12.6, 13.4],
+                "precipitation_probability": [5.0, 40.0],
+                "precipitation": [0.0, 0.3]
+            }
+        }))
+        .unwrap()
+    }
+
+    fn air_quality() -> AirQualityReport {
+        serde_json::from_value(json!({
+            "hourly": { "european_aqi": [15, null], "us_aqi": [120] }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn thunderstorm_codes_have_icon() {
+        for code in [95, 96, 99] {
+            assert_eq!(weather_icon(code, true), "⛈️");
+        }
+    }
+
+    #[test]
+    fn night_icons() {
+        assert_eq!(weather_icon(0, false), "🌙");
+        assert_eq!(weather_icon(2, false), "☁️");
+        assert_eq!(weather_icon(61, false), "🌧️");
+    }
+
+    #[test]
+    fn text_shows_icon_and_rounded_temperature() {
+        let output = format_output(&weather(0, 1), None, AqiStandard::European);
+        assert_eq!(output.text, "☀️ 13°");
+    }
+
+    #[test]
+    fn tooltip_lists_hourly_rows() {
+        let output = format_output(&weather(0, 1), Some(&air_quality()), AqiStandard::European);
+        assert!(output.tooltip.contains("😷 Air Quality: 15 🟢"));
+        assert!(output
+            .tooltip
+            .contains("\n08:00 | 13° | 🌧️  5% 0.00mm | AQI: 15 🟢"));
+        assert!(output
+            .tooltip
+            .contains("\n09:00 | 13° | 🌧️ 40% 0.30mm | AQI: N/A ❓"));
+    }
+
+    #[test]
+    fn mismatched_hourly_lengths_do_not_panic() {
+        let mut report = weather(0, 1);
+        report.hourly.precipitation.pop();
+        let output = format_output(&report, None, AqiStandard::European);
+        assert_eq!(output.tooltip.matches(" | AQI: ").count(), 1);
+    }
+
+    #[test]
+    fn aqi_label_uses_selected_standard() {
+        let aq = air_quality();
+        assert_eq!(aqi_label(Some(&aq), AqiStandard::European, 0), "15 🟢");
+        assert_eq!(aqi_label(Some(&aq), AqiStandard::European, 1), "N/A ❓");
+        assert_eq!(aqi_label(Some(&aq), AqiStandard::Us, 0), "120 🟠");
+        assert_eq!(aqi_label(Some(&aq), AqiStandard::Us, 5), "N/A ❓");
+        assert_eq!(aqi_label(None, AqiStandard::Us, 0), "N/A ❓");
+    }
+
+    #[test]
+    fn aqi_domain_matches_api_names() {
+        assert_eq!(AqiDomain::CamsEurope.to_string(), "cams_europe");
+        assert_eq!(AqiDomain::CamsGlobal.to_string(), "cams_global");
+        assert_eq!(AqiDomain::Auto.to_string(), "auto");
+    }
+}
