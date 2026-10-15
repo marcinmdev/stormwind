@@ -2,7 +2,7 @@ mod report;
 
 use crate::report::{AirQualityReport, WeatherReport};
 use clap::Parser;
-use reqwest::blocking::{Client, Response};
+use reqwest::blocking::Client;
 use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -143,12 +143,14 @@ struct WaybarOutput {
     tooltip: String,
 }
 
-fn get_with_retry(client: &Client, url: &Url) -> Result<Response, String> {
+fn fetch<T: DeserializeOwned>(client: &Client, url: &Url) -> Result<T, String> {
     let mut last_err = String::new();
 
     for attempt in 1..=MAX_ATTEMPTS {
         match client.get(url.clone()).send() {
-            Ok(response) if response.status().is_success() => return Ok(response),
+            Ok(response) if response.status().is_success() => {
+                return response.json().map_err(|e| e.to_string());
+            }
             Ok(response) => last_err = format!("HTTP {}", response.status()),
             Err(e) => last_err = e.to_string(),
         }
@@ -161,11 +163,6 @@ fn get_with_retry(client: &Client, url: &Url) -> Result<Response, String> {
     Err(last_err)
 }
 
-fn fetch<T: DeserializeOwned>(client: &Client, url: &Url) -> Result<T, String> {
-    get_with_retry(client, url)?
-        .json()
-        .map_err(|e| e.to_string())
-}
 
 fn weather_url(args: &Args) -> Url {
     Url::parse_with_params(
@@ -217,10 +214,6 @@ fn cache_path(lat: f32, lon: f32) -> PathBuf {
         .join(format!("{lat:.4}-{lon:.4}.json"))
 }
 
-fn load_cached_output(path: &Path) -> Option<String> {
-    std::fs::read_to_string(path).ok()
-}
-
 fn save_cached_output(path: &Path, output: &str) {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -233,7 +226,7 @@ fn run_once(args: &Args, client: &Client, cache_file: &Path) -> bool {
         Ok(report) => report,
         Err(e) => {
             eprintln!("Weather API error: {e}");
-            if let Some(cached) = load_cached_output(cache_file) {
+            if let Ok(cached) = std::fs::read_to_string(cache_file) {
                 println!("{cached}");
                 let _ = std::io::stdout().flush();
             }
