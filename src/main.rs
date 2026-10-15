@@ -7,6 +7,7 @@ use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fmt::Write;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
@@ -15,6 +16,7 @@ const REQUEST_TIMEOUT_SECS: u64 = 10;
 const MAX_ATTEMPTS: u32 = 3;
 const RETRY_DELAY_MS: u64 = 1500;
 const FORECAST_HOURS: usize = 8;
+const OFFLINE_RETRY_SECS: u64 = 5;
 
 const WEATHER_API: &str = "https://api.open-meteo.com/v1/forecast";
 const AIR_QUALITY_API: &str = "https://air-quality-api.open-meteo.com/v1/air-quality";
@@ -125,6 +127,14 @@ struct Args {
         help = "Air quality model domain to use"
     )]
     aqi_domain: AqiDomain,
+
+    #[arg(
+        long,
+        help = "Run forever, refreshing every INTERVAL seconds. While no \
+                successful fetch has happened yet (e.g. no internet at \
+                boot), retries quickly instead of waiting a full interval."
+    )]
+    watch_interval: Option<u64>,
 }
 
 #[derive(Serialize, Debug)]
@@ -203,7 +213,8 @@ fn cache_path(lat: f32, lon: f32) -> PathBuf {
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
         .unwrap_or_else(std::env::temp_dir);
 
-    dir.join(format!("stormwind-{lat:.4}-{lon:.4}.json"))
+    dir.join(env!("CARGO_PKG_NAME"))
+        .join(format!("{lat:.4}-{lon:.4}.json"))
 }
 
 fn load_cached_output(path: &Path) -> Option<String> {
@@ -217,27 +228,20 @@ fn save_cached_output(path: &Path, output: &str) {
     let _ = std::fs::write(path, output);
 }
 
-fn main() {
-    let args = Args::parse();
-    let client = Client::builder()
-        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-        .build()
-        .expect("Failed to build HTTP client");
-    let cache_file = cache_path(args.lat, args.lon);
-
-    let weather_report: WeatherReport = match fetch(&client, &weather_url(&args)) {
+fn run_once(args: &Args, client: &Client, cache_file: &Path) -> bool {
+    let weather_report: WeatherReport = match fetch(client, &weather_url(args)) {
         Ok(report) => report,
         Err(e) => {
             eprintln!("Weather API error: {e}");
-            if let Some(cached) = load_cached_output(&cache_file) {
+            if let Some(cached) = load_cached_output(cache_file) {
                 println!("{cached}");
-                return;
+                let _ = std::io::stdout().flush();
             }
-            std::process::exit(1);
+            return false;
         }
     };
 
-    let air_quality_report = fetch::<AirQualityReport>(&client, &air_quality_url(&args))
+    let air_quality_report = fetch::<AirQualityReport>(client, &air_quality_url(args))
         .inspect_err(|e| eprintln!("Air quality API error: {e}"))
         .ok();
 
@@ -248,8 +252,32 @@ fn main() {
     );
     let json = serde_json::to_string(&output).expect("WaybarOutput is serializable");
 
-    save_cached_output(&cache_file, &json);
+    save_cached_output(cache_file, &json);
     println!("{json}");
+    let _ = std::io::stdout().flush();
+    true
+}
+
+fn main() {
+    let args = Args::parse();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .build()
+        .expect("Failed to build HTTP client");
+    let cache_file = cache_path(args.lat, args.lon);
+
+    match args.watch_interval {
+        None => {
+            if !run_once(&args, &client, &cache_file) {
+                std::process::exit(1);
+            }
+        }
+        Some(interval) => loop {
+            let success = run_once(&args, &client, &cache_file);
+            let sleep_secs = if success { interval } else { OFFLINE_RETRY_SECS };
+            thread::sleep(Duration::from_secs(sleep_secs));
+        },
+    }
 }
 
 fn weather_icon(code: u8, is_day: bool) -> &'static str {
@@ -337,7 +365,6 @@ fn format_output(
         .enumerate();
 
     for (i, (((time, temp), precip_prob), precip)) in hours {
-        // "2026-10-14T08:00" -> "08:00"
         let hour = time.split_once('T').map_or(time.as_str(), |(_, t)| t);
 
         let _ = write!(
@@ -451,6 +478,12 @@ mod tests {
         assert_eq!(aqi_label(Some(&aq), AqiStandard::Us, 0), "120 🟠");
         assert_eq!(aqi_label(Some(&aq), AqiStandard::Us, 5), "N/A ❓");
         assert_eq!(aqi_label(None, AqiStandard::Us, 0), "N/A ❓");
+    }
+
+    #[test]
+    fn cache_path_uses_app_subdirectory() {
+        let path = cache_path(50.11, 19.92);
+        assert!(path.ends_with("stormwind/50.1100-19.9200.json"));
     }
 
     #[test]
