@@ -21,10 +21,9 @@ Weather indicator for [Waybar](https://github.com/Alexays/Waybar/) using [Open-M
 
 Assuming that `stormwind` is in your path:
 
-```json
+```jsonc
 "custom/stormwind": {
-    "exec": "stormwind --lat xx --lon yy",
-    "interval": 600,
+    "exec": "stormwind --lat xx --lon yy --watch-interval 600",
     "return-type": "json",
     "exec-if":  "wget -q --spider https://google.com",
     },
